@@ -1,0 +1,223 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User authentication
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String
+  role          String    @default("user") // user, admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  companies     CompanyMember[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Company/Organization
+model Company {
+  id              String    @id @default(cuid())
+  name            String
+  siret           String?   @unique
+  address         String?
+  city            String?
+  postalCode      String?
+  country         String    @default("France")
+  phone           String?
+  email           String?
+  logo            String?
+  plan            String    @default("starter") // starter, pro, business
+  trialEndsAt     DateTime?
+  subscriptionId  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  members         CompanyMember[]
+  clients         Client[]
+  invoices        Invoice[]
+  budgets         Budget[]
+  scenarios       Scenario[]
+}
+
+model CompanyMember {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      String   @default("member") // owner, admin, member, viewer
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+}
+
+// CRM - Clients
+model Client {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  postalCode  String?
+  country     String   @default("France")
+  siret       String?
+  type        String   @default("individual") // individual, company
+  notes       String?
+  status      String   @default("active") // active, inactive, prospect
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+  deals    Deal[]
+}
+
+// CRM - Sales Pipeline
+model Deal {
+  id          String   @id @default(cuid())
+  clientId    String
+  title       String
+  amount      Float
+  currency    String   @default("EUR")
+  status      String   @default("prospecting") // prospecting, qualified, proposal, negotiation, won, lost
+  probability Int      @default(50) // 0-100
+  expectedDate DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+// Invoicing
+model Invoice {
+  id              String   @id @default(cuid())
+  companyId       String
+  clientId        String
+  number          String   @unique
+  date            DateTime @default(now())
+  dueDate         DateTime
+  status          String   @default("draft") // draft, sent, paid, overdue, cancelled
+  subtotal        Float
+  taxRate         Float    @default(20.0) // French TVA
+  taxAmount       Float
+  total           Float
+  currency        String   @default("EUR")
+  notes           String?
+  paymentTerms    String?
+  pdfUrl          String?
+  isRecurring     Boolean  @default(false)
+  recurringPeriod String?  // monthly, quarterly, yearly
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items   InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float
+  unitPrice   Float
+  taxRate     Float   @default(20.0)
+  total       Float
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+// Financial Planning - Budgets
+model Budget {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  year      Int
+  type      String   @default("annual") // monthly, quarterly, annual
+  status    String   @default("active") // active, archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company    Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+}
+
+model BudgetCategory {
+  id            String  @id @default(cuid())
+  budgetId      String
+  name          String
+  type          String  // revenue, expense
+  planned       Float
+  actual        Float   @default(0)
+  month         Int?    // 1-12 for monthly budgets
+  quarter       Int?    // 1-4 for quarterly budgets
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+}
+
+// Financial Planning - Scenarios
+model Scenario {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  type        String   @default("forecast") // forecast, what-if
+  assumptions String?  // JSON string
+  results     String?  // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}

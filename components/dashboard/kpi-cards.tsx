@@ -1,0 +1,88 @@
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowUpRight, ArrowDownRight, Euro, FileText, Users, TrendingUp } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+
+interface KPIData {
+  label: string
+  value: string | number
+  change: number
+  changeLabel: string
+  icon: React.ElementType
+  color: string
+}
+
+export function KPICards() {
+  const kpis: KPIData[] = [
+    {
+      label: "Chiffre d'affaires",
+      value: formatCurrency(45280),
+      change: 12.5,
+      changeLabel: "vs mois dernier",
+      icon: Euro,
+      color: "text-green-600 bg-green-100",
+    },
+    {
+      label: "Factures en attente",
+      value: 8,
+      change: -20,
+      changeLabel: "vs mois dernier",
+      icon: FileText,
+      color: "text-blue-600 bg-blue-100",
+    },
+    {
+      label: "Clients actifs",
+      value: 24,
+      change: 8.3,
+      changeLabel: "vs mois dernier",
+      icon: Users,
+      color: "text-purple-600 bg-purple-100",
+    },
+    {
+      label: "Trésorerie",
+      value: formatCurrency(78500),
+      change: 5.2,
+      changeLabel: "vs mois dernier",
+      icon: TrendingUp,
+      color: "text-primary bg-primary-100",
+    },
+  ]
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {kpis.map((kpi, index) => (
+        <Card
+          key={kpi.label}
+          className="hover:shadow-lg transition-shadow cursor-pointer animate-fade-up"
+          style={{ animationDelay: `${index * 100}ms` }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              {kpi.label}
+            </CardTitle>
+            <div className={`p-2 rounded-lg ${kpi.color}`}>
+              <kpi.icon className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{kpi.value}</div>
+            <div className="flex items-center mt-2 text-sm">
+              {kpi.change > 0 ? (
+                <ArrowUpRight className="h-4 w-4 text-green-600 mr-1" />
+              ) : (
+                <ArrowDownRight className="h-4 w-4 text-red-600 mr-1" />
+              )}
+              <span
+                className={kpi.change > 0 ? "text-green-600" : "text-red-600"}
+              >
+                {Math.abs(kpi.change)}%
+              </span>
+              <span className="text-gray-500 ml-2">{kpi.changeLabel}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
