@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { sendWelcomeEmail } from "@/lib/email"
+import { authLimiter, getClientIdentifier, checkRateLimit } from "@/lib/rate-limit"
 
 const registerSchema = z.object({
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
@@ -13,6 +15,24 @@ const registerSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Check rate limit
+    const identifier = getClientIdentifier(req)
+    const rateLimitResult = await checkRateLimit(authLimiter, identifier)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Trop de tentatives. Veuillez réessayer plus tard." },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": rateLimitResult.limit?.toString() || "",
+            "X-RateLimit-Remaining": rateLimitResult.remaining?.toString() || "",
+            "X-RateLimit-Reset": rateLimitResult.reset?.toString() || "",
+          },
+        }
+      )
+    }
+
     const body = await req.json()
 
     // Validate input
@@ -64,6 +84,12 @@ export async function POST(req: NextRequest) {
 
       return { user, company }
     })
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail({
+      to: result.user.email,
+      name: result.user.name || 'Utilisateur',
+    }).catch(err => console.error('Failed to send welcome email:', err))
 
     return NextResponse.json({
       message: "Compte créé avec succès",

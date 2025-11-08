@@ -65,6 +65,35 @@ export const authOptions: NextAuthOptions = {
     error: "/connexion",
   },
   callbacks: {
+    async signIn({ user, account }) {
+      // For OAuth providers, check if user has a company, if not create one
+      if (account?.provider !== "credentials") {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email! },
+          include: { companies: true }
+        })
+
+        // If user doesn't have a company, create one
+        if (existingUser && existingUser.companies.length === 0) {
+          const company = await prisma.company.create({
+            data: {
+              name: `Entreprise de ${user.name || user.email}`,
+              plan: "starter",
+              trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
+            }
+          })
+
+          await prisma.companyMember.create({
+            data: {
+              userId: existingUser.id,
+              companyId: company.id,
+              role: "owner",
+            }
+          })
+        }
+      }
+      return true
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id

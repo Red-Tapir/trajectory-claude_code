@@ -30,9 +30,11 @@ Trajectory est une plateforme tout-en-un de planification financière, CRM et fa
 - Conformité e-invoicing 2026 (Factur-X)
 - Gestion des statuts (brouillon, envoyée, payée, en retard)
 - **Génération automatique de PDF** pour toutes les factures
+- **Envoi d'emails automatique** avec templates professionnels
 - Factures récurrentes et rappels automatiques
 - Suivi des paiements et relances
 - **API REST complète** pour CRUD factures
+- **Rate limiting** pour protection anti-spam
 
 ### 📈 Rapports et analyses
 - Tableaux de bord personnalisables
@@ -64,9 +66,12 @@ Trajectory est une plateforme tout-en-un de planification financière, CRM et fa
 - **Next.js API Routes** - API REST complète
 - **NextAuth.js** - Authentification sécurisée
 - **Prisma** - ORM moderne pour la base de données
-- **SQLite** (développement) / **PostgreSQL** (production)
+- **PostgreSQL** - Base de données production
 - **bcryptjs** - Hashage de mots de passe
 - **Zod** - Validation de schémas
+- **Resend** - Envoi d'emails transactionnels
+- **Upstash Redis** - Rate limiting et caching
+- **Sentry** - Monitoring d'erreurs
 
 ### PDF & Documents
 - **jsPDF** - Génération de factures PDF
@@ -106,17 +111,32 @@ cp .env.example .env
 Éditer `.env` avec vos configurations:
 ```env
 # Database
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@host:5432/dbname?schema=public"
+# Pour dev: DATABASE_URL="file:./dev.db"
 
 # NextAuth
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="votre-secret-unique-changez-moi"
+NEXTAUTH_SECRET="votre-secret-unique-changez-moi-minimum-32-caracteres"
 
 # OAuth Providers (optionnel)
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 GITHUB_ID=""
 GITHUB_SECRET=""
+
+# Email (Resend)
+RESEND_API_KEY=""
+FROM_EMAIL="noreply@trajectory.fr"
+
+# Rate Limiting (Upstash Redis)
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
+
+# Monitoring (Sentry - optionnel)
+NEXT_PUBLIC_SENTRY_DSN=""
+SENTRY_AUTH_TOKEN=""
+SENTRY_ORG=""
+SENTRY_PROJECT=""
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
@@ -209,6 +229,7 @@ trajectory/
 - `PUT /api/invoices/[id]` - Modifier une facture
 - `DELETE /api/invoices/[id]` - Supprimer une facture
 - `GET /api/invoices/[id]/pdf` - Télécharger la facture en PDF
+- `POST /api/invoices/[id]/send` - Envoyer la facture par email (avec rate limiting)
 
 ### Budgets
 - `GET /api/budgets` - Liste tous les budgets
@@ -297,33 +318,123 @@ L'application est entièrement responsive et optimisée pour:
 
 ## 🚀 Déploiement
 
+### Prérequis de production
+
+Avant de déployer, créez des comptes et configurez:
+
+1. **Base de données PostgreSQL**
+   - [Supabase](https://supabase.com/) (recommandé, plan gratuit)
+   - [Neon](https://neon.tech/) (serverless PostgreSQL)
+   - [Railway](https://railway.app/)
+
+2. **Resend** (emails)
+   - Créer un compte sur [resend.com](https://resend.com)
+   - Obtenir une clé API
+   - Vérifier votre domaine d'envoi
+
+3. **Upstash Redis** (rate limiting)
+   - Créer un compte sur [upstash.com](https://upstash.com)
+   - Créer une base Redis
+   - Copier les credentials REST API
+
+4. **OAuth (optionnel)**
+   - **Google**: [Console Google Cloud](https://console.cloud.google.com)
+   - **GitHub**: [GitHub OAuth Apps](https://github.com/settings/developers)
+
+5. **Sentry** (monitoring - optionnel)
+   - Créer un compte sur [sentry.io](https://sentry.io)
+   - Créer un projet Next.js
+   - Copier le DSN
+
 ### Vercel (recommandé)
+
 ```bash
 npm run build
-vercel deploy
+vercel deploy --prod
 ```
 
-Configurez les variables d'environnement dans Vercel:
-- `DATABASE_URL` - URL PostgreSQL (recommandé: Supabase, Neon)
-- `NEXTAUTH_URL` - URL de production
-- `NEXTAUTH_SECRET` - Secret unique fort
-- OAuth credentials si utilisé
+Configurez **toutes** les variables d'environnement dans Vercel:
+
+```env
+# Database
+DATABASE_URL="postgresql://..."
+
+# NextAuth
+NEXTAUTH_URL="https://votre-domaine.com"
+NEXTAUTH_SECRET="generer-avec-openssl-rand-base64-32"
+
+# OAuth (optionnel)
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GITHUB_ID="..."
+GITHUB_SECRET="..."
+
+# Email (Resend)
+RESEND_API_KEY="re_..."
+FROM_EMAIL="noreply@votre-domaine.com"
+
+# Rate Limiting (Upstash)
+UPSTASH_REDIS_REST_URL="https://..."
+UPSTASH_REDIS_REST_TOKEN="..."
+
+# Monitoring (Sentry - optionnel)
+NEXT_PUBLIC_SENTRY_DSN="https://..."
+SENTRY_AUTH_TOKEN="..."
+SENTRY_ORG="..."
+SENTRY_PROJECT="..."
+
+# App
+NEXT_PUBLIC_APP_URL="https://votre-domaine.com"
+```
+
+### Railway / Render
+
+```bash
+# Build
+npm run build
+
+# Start
+npm run start
+```
+
+Configurez les mêmes variables d'environnement que pour Vercel.
 
 ### Docker
+
 ```bash
 docker build -t trajectory .
-docker run -p 3000:3000 trajectory
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e NEXTAUTH_URL="https://..." \
+  -e NEXTAUTH_SECRET="..." \
+  trajectory
 ```
+
+### ⚠️ Checklist avant déploiement
+
+- [ ] PostgreSQL configuré et accessible
+- [ ] Migrations Prisma appliquées (`npx prisma migrate deploy`)
+- [ ] Variables d'environnement configurées
+- [ ] Domaine d'envoi vérifié dans Resend
+- [ ] OAuth credentials configurés (si utilisé)
+- [ ] NEXTAUTH_SECRET généré avec `openssl rand -base64 32`
+- [ ] Upstash Redis créé et configuré
+- [ ] Sentry projet créé (optionnel)
+- [ ] Tests passent (`npm run test`)
+- [ ] Build réussit (`npm run build`)
 
 ## 📄 Scripts disponibles
 
 ```bash
-npm run dev         # Serveur de développement
-npm run build       # Build de production
-npm run start       # Serveur de production
-npm run lint        # Linter ESLint
-npm run db:push     # Pusher le schéma Prisma vers la DB
-npm run db:seed     # Seeder la base de données
+npm run dev           # Serveur de développement
+npm run build         # Build de production
+npm run start         # Serveur de production
+npm run lint          # Linter ESLint
+npm run test          # Lancer les tests (Vitest)
+npm run test:ui       # Interface graphique de tests
+npm run db:push       # Pusher le schéma Prisma vers la DB
+npm run db:seed       # Seeder la base de données
+npm run db:migrate    # Créer une migration Prisma
 ```
 
 ## 🧪 Compte de test
@@ -345,54 +456,88 @@ Le compte de test inclut:
 
 ### ✅ Backend complet
 - API REST pour clients, factures, budgets
-- Authentification NextAuth.js
-- Base de données Prisma
-- Validation Zod
-- Gestion d'erreurs
+- Authentification NextAuth.js avec OAuth (Google, GitHub)
+- Base de données PostgreSQL avec Prisma
+- Validation Zod pour toutes les entrées
+- Gestion d'erreurs centralisée
+- Rate limiting avec Upstash Redis
+- Envoi d'emails avec Resend
 
 ### ✅ Frontend fonctionnel
-- Landing page responsive
-- Dashboard avec graphiques
+- Landing page responsive et moderne
+- Dashboard avec graphiques interactifs
 - Pages CRM, Facturation, Planning, Rapports
 - Connexion/Inscription opérationnelles
-- Navigation fluide
+- Navigation fluide avec loading states
+- Bandeau de consentement GDPR
+- Pages de politique de confidentialité et cookies
 
 ### ✅ Génération de PDF
-- Templates professionnels
+- Templates professionnels de factures
 - Informations complètes (entreprise, client, items)
 - Téléchargement direct
-- Format conforme
+- Format conforme e-invoicing 2026
 
-### ✅ Sécurité
-- Protection des routes
-- Sessions JWT
-- Validation des données
-- Hashage des mots de passe
+### ✅ Emails automatiques
+- Email de bienvenue lors de l'inscription
+- Envoi automatique de factures par email
+- Templates HTML responsive
+- Rate limiting anti-spam
 
-## 🔜 Prochaines étapes
+### ✅ Sécurité et conformité
+- Protection des routes avec middleware
+- Sessions JWT sécurisées
+- Validation des données avec Zod
+- Hashage des mots de passe avec bcrypt
+- Rate limiting sur API et auth
+- Monitoring avec Sentry
+- Conformité RGPD (bandeau cookies, politique de confidentialité)
+- Protection CSRF intégrée
 
-Pour une application production-ready, considérez:
+### ✅ Performance
+- Optimisation des images Next.js
+- Lazy loading des composants
+- Caching intelligent des API responses
+- Loading states et error boundaries
+- Font optimization avec display: swap
 
-1. **Emails**
-   - Intégration Resend/SendGrid
-   - Envoi de factures par email
-   - Rappels automatiques
+### ✅ Tests
+- Tests unitaires avec Vitest
+- Tests d'authentification
+- Tests de calculs de factures
+- Tests de rate limiting
+- Interface de tests graphique
 
-2. **Paiements**
-   - Intégration Stripe
-   - Gestion des abonnements
-   - Webhooks
+## 🔜 Fonctionnalités avancées (roadmap)
 
-3. **Tests**
-   - Tests unitaires (Jest/Vitest)
-   - Tests E2E (Playwright)
-   - Tests d'intégration
+Pour aller encore plus loin:
 
-4. **Fonctionnalités avancées**
-   - Intégrations bancaires
-   - Notifications en temps réel
+1. **Paiements**
+   - Intégration Stripe pour paiements en ligne
+   - Gestion des abonnements automatique
+   - Webhooks pour synchronisation des paiements
+   - Prélèvements SEPA
+
+2. **Tests E2E**
+   - Tests end-to-end avec Playwright
+   - Tests de régression automatiques
+   - Tests de performance
+
+3. **Intégrations tierces**
+   - Intégrations bancaires (Open Banking)
+   - Synchronisation comptable (QuickBooks, Sage)
+   - CRM externes (HubSpot, Salesforce)
+   - Outils de facturation (Stripe Billing)
+
+4. **Fonctionnalités métier avancées**
+   - Gestion multi-devises
+   - Multi-entreprises pour comptables
+   - Notifications push en temps réel
    - Rapports personnalisés avancés
-   - Export Excel/CSV
+   - Export Excel/CSV enrichis
+   - Devis et bons de commande
+   - Gestion des stocks
+   - Time tracking et projets
 
 ## 🤝 Contribution
 
