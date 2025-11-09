@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { checkPlanLimit } from "@/lib/subscription"
 
 const clientSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -107,6 +108,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Entreprise non trouvée" },
         { status: 404 }
+      )
+    }
+
+    // Vérifier les limites du plan
+    const limitCheck = await checkPlanLimit(companyMember.companyId, 'create_client')
+
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.message, upgradeTo: '/pricing' },
+        { status: 403 }
       )
     }
 

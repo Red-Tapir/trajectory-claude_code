@@ -74,9 +74,9 @@ model Company {
   phone           String?
   email           String?
   logo            String?
-  plan            String    @default("starter") // starter, pro, business
+  plan            String    @default("trial") // trial, starter, pro, enterprise
   trialEndsAt     DateTime?
-  subscriptionId  String?
+  stripeCustomerId String?  @unique
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -85,6 +85,7 @@ model Company {
   invoices        Invoice[]
   budgets         Budget[]
   scenarios       Scenario[]
+  subscription    Subscription?
 }
 
 model CompanyMember {
@@ -218,6 +219,26 @@ model Scenario {
   results     String?  // JSON string
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+// Stripe Subscriptions
+model Subscription {
+  id                   String    @id @default(cuid())
+  companyId            String    @unique
+  stripeSubscriptionId String    @unique
+  stripePriceId        String
+  stripeProductId      String
+  status               String    // active, canceled, incomplete, incomplete_expired, past_due, paused, trialing, unpaid
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean   @default(false)
+  canceledAt           DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
