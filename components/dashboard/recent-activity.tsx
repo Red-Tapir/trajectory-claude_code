@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { FileText, Users, Euro, TrendingUp } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
+type Status = "sent" | "paid" | "new" | "pending" | "success"
+
 interface Activity {
   id: string
   type: "invoice" | "client" | "payment" | "budget"
@@ -12,7 +14,7 @@ interface Activity {
   description: string
   date: Date
   amount?: number
-  status?: string
+  status?: Status
 }
 
 const activities: Activity[] = [
