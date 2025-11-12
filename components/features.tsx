@@ -13,6 +13,65 @@ import {
   Shield,
 } from "lucide-react"
 
+const features = [
+  {
+    icon: LayoutDashboard,
+    title: "Tableau de bord",
+    description:
+      "Visualisez vos KPIs, prévisions et alertes en temps réel. Gardez le contrôle de votre activité d'un seul coup d'œil.",
+    color: "bg-blue-500",
+  },
+  {
+    icon: TrendingUp,
+    title: "Planification financière",
+    description:
+      "Créez des budgets, simulez des scénarios et suivez vos objectifs vs résultats pour anticiper votre croissance.",
+    color: "bg-primary",
+  },
+  {
+    icon: Users,
+    title: "CRM intégré",
+    description:
+      "Gérez vos clients, suivez votre pipeline commercial et reliez chaque facture à son client pour une vue complète.",
+    color: "bg-purple-500",
+  },
+  {
+    icon: FileText,
+    title: "Facturation simplifiée",
+    description:
+      "Créez et envoyez des factures professionnelles conformes à la réglementation française (e-invoicing 2026).",
+    color: "bg-orange-500",
+  },
+  {
+    icon: BarChart3,
+    title: "Rapports & analyses",
+    description:
+      "Exportez des rapports détaillés, visualisez vos performances avec des graphiques clairs et pertinents.",
+    color: "bg-green-500",
+  },
+  {
+    icon: Target,
+    title: "Objectifs & prévisions",
+    description:
+      "Définissez vos objectifs et suivez leur réalisation avec des prévisions basées sur vos données historiques.",
+    color: "bg-red-500",
+  },
+  {
+    icon: Zap,
+    title: "Automatisation",
+    description:
+      "Gagnez du temps avec des rappels automatiques, des factures récurrentes et des calculs en temps réel.",
+    color: "bg-yellow-500",
+  },
+  {
+    icon: Shield,
+    title: "Sécurité & conformité",
+    description:
+      "Vos données sont protégées et hébergées en France. Conformité RGPD et normes de facturation française.",
+    color: "bg-indigo-500",
+  },
+]
+
 export function Features() {
   const [visibleCards, setVisibleCards] = useState<number[]>([])
   const sectionRef = useRef<HTMLElement>(null)
@@ -41,65 +100,6 @@ export function Features() {
 
     return () => observer.disconnect()
   }, [])
-
-  const features = [
-    {
-      icon: LayoutDashboard,
-      title: "Tableau de bord",
-      description:
-        "Visualisez vos KPIs, prévisions et alertes en temps réel. Gardez le contrôle de votre activité d'un seul coup d'œil.",
-      color: "bg-blue-500",
-    },
-    {
-      icon: TrendingUp,
-      title: "Planification financière",
-      description:
-        "Créez des budgets, simulez des scénarios et suivez vos objectifs vs résultats pour anticiper votre croissance.",
-      color: "bg-primary",
-    },
-    {
-      icon: Users,
-      title: "CRM intégré",
-      description:
-        "Gérez vos clients, suivez votre pipeline commercial et reliez chaque facture à son client pour une vue complète.",
-      color: "bg-purple-500",
-    },
-    {
-      icon: FileText,
-      title: "Facturation simplifiée",
-      description:
-        "Créez et envoyez des factures professionnelles conformes à la réglementation française (e-invoicing 2026).",
-      color: "bg-orange-500",
-    },
-    {
-      icon: BarChart3,
-      title: "Rapports & analyses",
-      description:
-        "Exportez des rapports détaillés, visualisez vos performances avec des graphiques clairs et pertinents.",
-      color: "bg-green-500",
-    },
-    {
-      icon: Target,
-      title: "Objectifs & prévisions",
-      description:
-        "Définissez vos objectifs et suivez leur réalisation avec des prévisions basées sur vos données historiques.",
-      color: "bg-red-500",
-    },
-    {
-      icon: Zap,
-      title: "Automatisation",
-      description:
-        "Gagnez du temps avec des rappels automatiques, des factures récurrentes et des calculs en temps réel.",
-      color: "bg-yellow-500",
-    },
-    {
-      icon: Shield,
-      title: "Sécurité & conformité",
-      description:
-        "Vos données sont protégées et hébergées en France. Conformité RGPD et normes de facturation française.",
-      color: "bg-indigo-500",
-    },
-  ]
 
   return (
     <section
