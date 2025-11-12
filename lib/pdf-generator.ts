@@ -110,11 +110,11 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
   yPos += 7
   doc.setFontSize(10)
-  doc.setFont(undefined, "bold")
+  doc.setFont("helvetica", "bold")
   doc.text(invoice.client.name, 20, yPos)
 
   yPos += 5
-  doc.setFont(undefined, "normal")
+  doc.setFont("helvetica", "normal")
   doc.setTextColor(grayColor[0], grayColor[1], grayColor[2])
   if (invoice.client.address) {
     doc.text(invoice.client.address, 20, yPos)
@@ -142,7 +142,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.rect(20, yPos - 5, 170, 8, "F")
 
   doc.setFontSize(9)
-  doc.setFont(undefined, "bold")
+  doc.setFont("helvetica", "bold")
   doc.setTextColor(grayColor[0], grayColor[1], grayColor[2])
   doc.text("DESCRIPTION", 22, yPos)
   doc.text("QTÉ", 120, yPos, { align: "center" })
@@ -151,7 +151,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
   // Table Items
   yPos += 8
-  doc.setFont(undefined, "normal")
+  doc.setFont("helvetica", "normal")
   doc.setTextColor(0, 0, 0)
 
   invoice.items.forEach((item) => {
@@ -184,7 +184,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
   yPos += 10
   doc.setFontSize(12)
-  doc.setFont(undefined, "bold")
+  doc.setFont("helvetica", "bold")
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
   doc.text("TOTAL TTC:", 130, yPos)
   doc.text(formatCurrency(invoice.total), 185, yPos, { align: "right" })
@@ -193,7 +193,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   if (invoice.paymentTerms) {
     yPos += 15
     doc.setFontSize(9)
-    doc.setFont(undefined, "normal")
+    doc.setFont("helvetica", "normal")
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2])
     doc.text("Conditions de paiement:", 20, yPos)
     yPos += 5
