@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 import { PLANS, formatPrice } from '@/lib/stripe'
 
+export const dynamic = 'force-dynamic'
+
 export default function PricingPage() {
   const router = useRouter()
   const { data: session } = useSession()
