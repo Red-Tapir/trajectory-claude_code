@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { sendInvoiceEmail } from "@/lib/email"
 import { emailLimiter, getClientIdentifier, checkRateLimit } from "@/lib/rate-limit"
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

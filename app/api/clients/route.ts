@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { checkPlanLimit } from "@/lib/subscription"
 
+export const dynamic = 'force-dynamic'
+
 const clientSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   email: z.string().email("Email invalide").optional().nullable(),
