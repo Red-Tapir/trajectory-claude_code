@@ -3,8 +3,6 @@ import { Resend } from 'resend'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function GET() {
   try {
     // Vérifier que les variables d'environnement sont configurées
@@ -21,6 +19,9 @@ export async function GET() {
         { status: 500 }
       )
     }
+
+    // Créer l'instance Resend au moment de l'appel (pas au build)
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Envoyer un email de test
     const { data, error } = await resend.emails.send({
