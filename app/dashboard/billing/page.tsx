@@ -25,10 +25,12 @@ interface SubscriptionData {
 }
 
 export default function BillingPage() {
-  const { data: session, status } = useSession()
+  const session = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null)
+
+  const { data: sessionData, status } = session || { data: null, status: 'loading' }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
