@@ -572,3 +572,5 @@ Pour toute question ou suggestion:
 ---
 
 Fait avec ❤️ en France pour les entrepreneurs français
+
+<!-- Deployment: 2025-11-14 -->
