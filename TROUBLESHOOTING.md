@@ -46,7 +46,7 @@ postgresql://postgres.oldqqjoledhllbsokexa:[YOUR-PASSWORD]@aws-0-eu-north-1.pool
 ### 2.2 Ajouter DIRECT_DATABASE_URL dans Vercel
 
 1. Allez sur **Vercel Dashboard** (https://vercel.com)
-2. Cliquez sur votre projet **trajectory-claude-code**
+2. Cliquez sur votre projet **trajectory-claude-code-nz2F** (⚠️ IMPORTANT: utilisez le bon projet!)
 3. Allez dans **Settings** (en haut)
 4. Dans le menu de gauche, cliquez sur **Environment Variables**
 5. Cliquez sur **Add New**
