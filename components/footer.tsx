@@ -22,10 +22,11 @@ export function Footer() {
       { name: "API", href: "/api" },
     ],
     legal: [
-      { name: "Confidentialité", href: "/privacy" },
-      { name: "Conditions", href: "/terms" },
-      { name: "Mentions légales", href: "/legal" },
-      { name: "RGPD", href: "/gdpr" },
+      { name: "Politique de confidentialité", href: "/politique-confidentialite" },
+      { name: "CGU", href: "/cgu" },
+      { name: "CGV", href: "/cgv" },
+      { name: "Mentions légales", href: "/mentions-legales" },
+      { name: "Remboursement", href: "/politique-remboursement" },
     ],
   }
 
