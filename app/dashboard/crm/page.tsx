@@ -1,71 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Mail, Phone, MapPin, Building } from "lucide-react"
+import { Plus, Search, Mail, Phone, MapPin, Building, Loader2 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { CreateClientDialog } from "@/components/dashboard/create-client-dialog"
 
 interface Client {
   id: string
   name: string
-  email: string
-  phone: string
+  email: string | null
+  phone: string | null
   company: string
   status: "active" | "prospect" | "inactive"
-  totalRevenue: number
-  lastContact: Date
-  invoicesCount: number
+  address: string | null
+  city: string | null
 }
-
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "Jean Dupont",
-    email: "jean.dupont@example.fr",
-    phone: "+33 6 12 34 56 78",
-    company: "SARL Dupont",
-    status: "active",
-    totalRevenue: 15400,
-    lastContact: new Date(2024, 10, 5),
-    invoicesCount: 8,
-  },
-  {
-    id: "2",
-    name: "Marie Martin",
-    email: "marie@techsolutions.fr",
-    phone: "+33 6 23 45 67 89",
-    company: "Tech Solutions",
-    status: "active",
-    totalRevenue: 28700,
-    lastContact: new Date(2024, 10, 3),
-    invoicesCount: 12,
-  },
-  {
-    id: "3",
-    name: "Pierre Lefebvre",
-    email: "p.lefebvre@consulting.fr",
-    phone: "+33 6 34 56 78 90",
-    company: "Lefebvre Consulting",
-    status: "prospect",
-    totalRevenue: 0,
-    lastContact: new Date(2024, 10, 1),
-    invoicesCount: 0,
-  },
-  {
-    id: "4",
-    name: "Sophie Bernard",
-    email: "sophie.b@designstudio.fr",
-    phone: "+33 6 45 67 89 01",
-    company: "Design Studio",
-    status: "active",
-    totalRevenue: 42300,
-    lastContact: new Date(2024, 9, 28),
-    invoicesCount: 15,
-  },
-]
 
 const statusColors = {
   active: "bg-green-100 text-green-800",
@@ -81,12 +34,41 @@ const statusLabels = {
 
 export default function CRMPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [clients] = useState<Client[]>(mockClients)
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  const loadClients = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/clients")
+      if (response.ok) {
+        const data = await response.json()
+        setClients(data.clients || [])
+      }
+    } catch (error) {
+      console.error("Error loading clients:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadClients()
+  }, [])
 
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.company.toLowerCase().includes(searchQuery.toLowerCase())
+    (client.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   )
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +81,7 @@ export default function CRMPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <Button>
+          <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nouveau client
           </Button>
@@ -135,26 +117,24 @@ export default function CRMPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              CA total
+              Total clients
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(
-                clients.reduce((sum, c) => sum + c.totalRevenue, 0)
-              )}
+              {clients.length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Factures émises
+              Inactifs
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {clients.reduce((sum, c) => sum + c.invoicesCount, 0)}
+              {clients.filter((c) => c.status === "inactive").length}
             </div>
           </CardContent>
         </Card>
@@ -173,59 +153,78 @@ export default function CRMPage() {
       </div>
 
       {/* Clients List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <Card
-            key={client.id}
-            className="hover:shadow-lg transition-all cursor-pointer"
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">{client.name}</CardTitle>
-                  <CardDescription className="flex items-center mt-1">
-                    <Building className="h-3 w-3 mr-1" />
-                    {client.company}
-                  </CardDescription>
+      {filteredClients.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Building className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-600 text-center mb-4">
+              {searchQuery
+                ? "Aucun client trouvé avec cette recherche"
+                : "Vous n'avez pas encore de clients"}
+            </p>
+            {!searchQuery && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Créer votre premier client
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClients.map((client) => (
+            <Card
+              key={client.id}
+              className="hover:shadow-lg transition-all cursor-pointer"
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{client.name}</CardTitle>
+                    {client.company && (
+                      <CardDescription className="flex items-center mt-1">
+                        <Building className="h-3 w-3 mr-1" />
+                        {client.company}
+                      </CardDescription>
+                    )}
+                  </div>
+                  <Badge className={statusColors[client.status]}>
+                    {statusLabels[client.status]}
+                  </Badge>
                 </div>
-                <Badge className={statusColors[client.status]}>
-                  {statusLabels[client.status]}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center text-gray-600">
-                  <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span className="truncate">{client.email}</span>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  {client.email && (
+                    <div className="flex items-center text-gray-600">
+                      <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{client.email}</span>
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="flex items-center text-gray-600">
+                      <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {client.phone}
+                    </div>
+                  )}
+                  {client.city && (
+                    <div className="flex items-center text-gray-600">
+                      <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {client.city}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
-                  {client.phone}
-                </div>
-              </div>
-              <div className="pt-3 border-t space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Chiffre d'affaires</span>
-                  <span className="font-semibold text-primary">
-                    {formatCurrency(client.totalRevenue)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Factures</span>
-                  <span className="font-semibold">{client.invoicesCount}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Dernier contact</span>
-                  <span className="text-gray-700">
-                    {formatDate(client.lastContact)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <CreateClientDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={loadClients}
+      />
     </div>
   )
 }
