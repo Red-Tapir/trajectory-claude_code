@@ -1,76 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Download, Eye, Send, FileText } from "lucide-react"
+import { Plus, Search, Download, Eye, Send, FileText, Loader2 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface Invoice {
   id: string
   number: string
-  client: string
-  date: Date
-  dueDate: Date
-  amount: number
+  client: {
+    name: string
+  }
+  date: string
+  dueDate: string
+  total: number
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled"
-  items: number
 }
-
-const mockInvoices: Invoice[] = [
-  {
-    id: "1",
-    number: "2024-045",
-    client: "SARL Dupont",
-    date: new Date(2024, 10, 5),
-    dueDate: new Date(2024, 11, 5),
-    amount: 2450,
-    status: "sent",
-    items: 3,
-  },
-  {
-    id: "2",
-    number: "2024-044",
-    client: "Tech Solutions",
-    date: new Date(2024, 10, 2),
-    dueDate: new Date(2024, 10, 17),
-    amount: 3200,
-    status: "overdue",
-    items: 5,
-  },
-  {
-    id: "3",
-    number: "2024-043",
-    client: "Design Studio",
-    date: new Date(2024, 9, 28),
-    dueDate: new Date(2024, 10, 28),
-    amount: 4100,
-    status: "paid",
-    items: 4,
-  },
-  {
-    id: "4",
-    number: "2024-042",
-    client: "Tech Solutions",
-    date: new Date(2024, 9, 25),
-    dueDate: new Date(2024, 10, 10),
-    amount: 1850,
-    status: "paid",
-    items: 2,
-  },
-  {
-    id: "5",
-    number: "2024-041",
-    client: "Consulting SARL",
-    date: new Date(2024, 9, 20),
-    dueDate: new Date(2024, 10, 5),
-    amount: 5600,
-    status: "paid",
-    items: 6,
-  },
-]
 
 const statusColors = {
   draft: "bg-gray-100 text-gray-800",
@@ -89,25 +38,80 @@ const statusLabels = {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [invoices] = useState<Invoice[]>(mockInvoices)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  const loadInvoices = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/invoices")
+      if (response.ok) {
+        const data = await response.json()
+        setInvoices(data.invoices || [])
+      }
+    } catch (error) {
+      console.error("Error loading invoices:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadInvoices()
+  }, [])
+
+  const handleDownloadPDF = async (invoiceId: string) => {
+    try {
+      setDownloadingId(invoiceId)
+      const response = await fetch(`/api/invoices/${invoiceId}/pdf`)
+
+      if (!response.ok) {
+        throw new Error("Erreur lors du téléchargement")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `facture-${invoiceId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      alert(error.message)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   const filteredInvoices = invoices.filter(
     (invoice) =>
       invoice.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.client.toLowerCase().includes(searchQuery.toLowerCase())
+      invoice.client.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0)
+  const totalAmount = invoices.reduce((sum, inv) => sum + inv.total, 0)
   const paidAmount = invoices
     .filter((inv) => inv.status === "paid")
-    .reduce((sum, inv) => sum + inv.amount, 0)
+    .reduce((sum, inv) => sum + inv.total, 0)
   const pendingAmount = invoices
     .filter((inv) => inv.status === "sent")
-    .reduce((sum, inv) => sum + inv.amount, 0)
+    .reduce((sum, inv) => sum + inv.total, 0)
   const overdueAmount = invoices
     .filter((inv) => inv.status === "overdue")
-    .reduce((sum, inv) => sum + inv.amount, 0)
+    .reduce((sum, inv) => sum + inv.total, 0)
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -120,7 +124,7 @@ export default function InvoicesPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <Button>
+          <Button onClick={() => alert("Fonctionnalité de création en cours de développement")}>
             <Plus className="h-4 w-4 mr-2" />
             Nouvelle facture
           </Button>
@@ -204,92 +208,112 @@ export default function InvoicesPage() {
       </div>
 
       {/* Invoices Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Factures</CardTitle>
-          <CardDescription>
-            Liste de toutes vos factures
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    N° Facture
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    Client
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    Date
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    Échéance
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    Montant
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">
-                    Statut
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredInvoices.map((invoice) => (
-                  <tr
-                    key={invoice.id}
-                    className="border-b hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="font-medium">{invoice.number}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-gray-700">
-                      {invoice.client}
-                    </td>
-                    <td className="py-4 px-4 text-gray-600">
-                      {formatDate(invoice.date)}
-                    </td>
-                    <td className="py-4 px-4 text-gray-600">
-                      {formatDate(invoice.dueDate)}
-                    </td>
-                    <td className="py-4 px-4 font-semibold">
-                      {formatCurrency(invoice.amount)}
-                    </td>
-                    <td className="py-4 px-4">
-                      <Badge className={statusColors[invoice.status]}>
-                        {statusLabels[invoice.status]}
-                      </Badge>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {invoice.status === "draft" && (
-                          <Button variant="ghost" size="sm">
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+      {filteredInvoices.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-600 text-center mb-4">
+              {searchQuery
+                ? "Aucune facture trouvée avec cette recherche"
+                : "Vous n'avez pas encore de factures"}
+            </p>
+            {!searchQuery && (
+              <Button onClick={() => alert("Fonctionnalité de création en cours de développement")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Créer votre première facture
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Factures</CardTitle>
+            <CardDescription>
+              Liste de toutes vos factures
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      N° Facture
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      Client
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      Échéance
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      Montant
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600">
+                      Statut
+                    </th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-600">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map((invoice) => (
+                    <tr
+                      key={invoice.id}
+                      className="border-b hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="py-4 px-4">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-gray-400 mr-2" />
+                          <span className="font-medium">{invoice.number}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-gray-700">
+                        {invoice.client.name}
+                      </td>
+                      <td className="py-4 px-4 text-gray-600">
+                        {formatDate(new Date(invoice.date))}
+                      </td>
+                      <td className="py-4 px-4 text-gray-600">
+                        {formatDate(new Date(invoice.dueDate))}
+                      </td>
+                      <td className="py-4 px-4 font-semibold">
+                        {formatCurrency(invoice.total)}
+                      </td>
+                      <td className="py-4 px-4">
+                        <Badge className={statusColors[invoice.status]}>
+                          {statusLabels[invoice.status]}
+                        </Badge>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadPDF(invoice.id)}
+                            disabled={downloadingId === invoice.id}
+                          >
+                            {downloadingId === invoice.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* E-invoicing Info */}
       <Card className="bg-blue-50 border-blue-200">
