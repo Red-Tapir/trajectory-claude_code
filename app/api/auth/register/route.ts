@@ -110,8 +110,39 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Log detailed error information for debugging
     console.error("Registration error:", error)
+    console.error("Error type:", error?.constructor?.name)
+    console.error("Error message:", (error as Error)?.message)
+    console.error("Error stack:", (error as Error)?.stack)
     console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)))
+
+    // Check for specific Prisma errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      const prismaError = error as { code: string; meta?: any; message: string }
+      console.error("Prisma error code:", prismaError.code)
+      console.error("Prisma error meta:", prismaError.meta)
+
+      // Handle specific Prisma error codes
+      if (prismaError.code === 'P2002') {
+        return NextResponse.json(
+          { error: "Un compte avec cet email existe déjà" },
+          { status: 400 }
+        )
+      }
+      if (prismaError.code === 'P2003') {
+        return NextResponse.json(
+          { error: "Erreur de relation dans la base de données" },
+          { status: 500 }
+        )
+      }
+      if (prismaError.code === 'P1001' || prismaError.code === 'P1002') {
+        return NextResponse.json(
+          { error: "Impossible de se connecter à la base de données" },
+          { status: 503 }
+        )
+      }
+    }
 
     return NextResponse.json(
       {
