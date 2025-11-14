@@ -5,6 +5,8 @@ import { z } from "zod"
 import { sendWelcomeEmail } from "@/lib/email"
 import { authLimiter, getClientIdentifier, checkRateLimit } from "@/lib/rate-limit"
 
+export const dynamic = 'force-dynamic'
+
 const registerSchema = z.object({
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
   lastName: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
       const company = await tx.company.create({
         data: {
           name: validatedData.company,
-          plan: "starter",
+          plan: "trial", // Plan d'essai gratuit par défaut
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
         }
       })
@@ -109,8 +111,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.error("Registration error:", error)
+    console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)))
+
     return NextResponse.json(
-      { error: "Une erreur est survenue lors de la création du compte" },
+      {
+        error: "Une erreur est survenue lors de la création du compte",
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      },
       { status: 500 }
     )
   }
