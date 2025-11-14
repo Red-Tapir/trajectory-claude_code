@@ -7,10 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 import { PLANS, formatPrice } from '@/lib/stripe'
 
+export const dynamic = 'force-dynamic'
+
 export default function PricingPage() {
   const router = useRouter()
-  const { data: session } = useSession()
+  const sessionResult = useSession()
   const [loading, setLoading] = useState<string | null>(null)
+
+  const session = sessionResult?.data
 
   const handleSubscribe = async (planId: string) => {
     if (!session) {

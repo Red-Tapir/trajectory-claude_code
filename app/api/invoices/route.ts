@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description requise"),
   quantity: z.number().positive("La quantité doit être positive"),
