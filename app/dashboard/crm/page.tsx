@@ -14,7 +14,7 @@ interface Client {
   name: string
   email: string | null
   phone: string | null
-  company: string
+  type: string
   status: "active" | "prospect" | "inactive"
   address: string | null
   city: string | null
@@ -181,10 +181,10 @@ export default function CRMPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-lg">{client.name}</CardTitle>
-                    {client.company && (
+                    {client.type === "company" && (
                       <CardDescription className="flex items-center mt-1">
                         <Building className="h-3 w-3 mr-1" />
-                        {client.company}
+                        Entreprise
                       </CardDescription>
                     )}
                   </div>

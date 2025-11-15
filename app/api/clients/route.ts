@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       lastContact: client.updatedAt,
     }))
 
-    return NextResponse.json(clientsWithStats)
+    return NextResponse.json({ clients: clientsWithStats })
 
   } catch (error) {
     console.error("Error fetching clients:", error)
