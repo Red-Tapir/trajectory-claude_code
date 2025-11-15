@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
-import { useSession } from "next-auth/react"
 
 interface CreateClientDialogProps {
   open: boolean
@@ -17,7 +16,6 @@ interface CreateClientDialogProps {
 }
 
 export function CreateClientDialog({ open, onOpenChange, onSuccess }: CreateClientDialogProps) {
-  const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
