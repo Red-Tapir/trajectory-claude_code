@@ -11,21 +11,26 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// User authentication
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String
-  role          String    @default("user") // user, admin
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+// ==========================================
+// AUTHENTICATION & USERS
+// ==========================================
 
-  accounts      Account[]
-  sessions      Session[]
-  companies     CompanyMember[]
+model User {
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String    @unique
+  emailVerified          DateTime?
+  image                  String?
+  password               String
+  currentOrganizationId  String?   // Active organization
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  accounts               Account[]
+  sessions               Session[]
+  memberships            OrganizationMember[]
+  currentOrganization    Organization? @relation("UserCurrentOrganization", fields: [currentOrganizationId], references: [id], onDelete: SetNull)
+  auditLogs              AuditLog[]
 }
 
 model Account {
@@ -52,7 +57,8 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -63,91 +69,169 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Company/Organization
-model Company {
-  id              String    @id @default(cuid())
-  name            String
-  siret           String?   @unique
-  address         String?
-  city            String?
-  postalCode      String?
-  country         String    @default("France")
-  phone           String?
-  email           String?
-  logo            String?
-  plan            String    @default("trial") // trial, starter, pro, enterprise
-  trialEndsAt     DateTime?
-  stripeCustomerId String?  @unique
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+// ==========================================
+// MULTI-TENANT ORGANIZATION
+// ==========================================
 
-  members         CompanyMember[]
-  clients         Client[]
-  invoices        Invoice[]
-  budgets         Budget[]
-  scenarios       Scenario[]
-  subscription    Subscription?
+model Organization {
+  id                String    @id @default(cuid())
+  name              String
+  slug              String    @unique  // URL-friendly identifier
+  siret             String?   @unique
+  address           String?
+  city              String?
+  postalCode        String?
+  country           String    @default("France")
+  phone             String?
+  email             String?
+  logo              String?
+
+  // Subscription & Billing
+  plan              String    @default("trial") // trial, starter, pro, enterprise
+  trialEndsAt       DateTime?
+  stripeCustomerId  String?   @unique
+
+  // Metadata
+  settings          Json?     // Organization-wide settings
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  members           OrganizationMember[]
+  clients           Client[]
+  invoices          Invoice[]
+  budgets           Budget[]
+  scenarios         Scenario[]
+  subscription      Subscription?
+  auditLogs         AuditLog[]
+  currentUsers      User[]    @relation("UserCurrentOrganization")
+
+  @@index([slug])
 }
 
-model CompanyMember {
-  id        String   @id @default(cuid())
-  userId    String
-  companyId String
-  role      String   @default("member") // owner, admin, member, viewer
-  createdAt DateTime @default(now())
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  invitedBy      String?  // userId who sent invitation
+  invitedAt      DateTime @default(now())
+  joinedAt       DateTime @default(now())
+  status         String   @default("active") // pending, active, suspended
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
-  @@unique([userId, companyId])
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
 }
 
-// CRM - Clients
-model Client {
+// ==========================================
+// RBAC - ROLES & PERMISSIONS
+// ==========================================
+
+model Role {
   id          String   @id @default(cuid())
-  companyId   String
-  name        String
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  postalCode  String?
-  country     String   @default("France")
-  siret       String?
-  type        String   @default("individual") // individual, company
-  notes       String?
-  status      String   @default("active") // active, inactive, prospect
+  name        String   // owner, admin, manager, editor, viewer
+  displayName String   // "Owner", "Administrator", "Manager", etc.
+  description String?
+  isSystem    Boolean  @default(false) // System roles cannot be deleted
+  priority    Int      @default(0)     // Higher = more permissions (owner = 100, viewer = 10)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  invoices Invoice[]
-  deals    Deal[]
+  members     OrganizationMember[]
+  permissions RolePermission[]
+
+  @@unique([name])
+  @@index([name])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  resource    String   // client, invoice, budget, user, organization, etc.
+  action      String   // create, read, update, delete, manage, export, etc.
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles       RolePermission[]
+
+  @@unique([resource, action])
+  @@index([resource])
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+}
+
+// ==========================================
+// BUSINESS ENTITIES (TENANT-SCOPED)
+// ==========================================
+
+// CRM - Clients
+model Client {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  postalCode     String?
+  country        String   @default("France")
+  siret          String?
+  type           String   @default("individual") // individual, company
+  notes          String?
+  status         String   @default("active") // active, inactive, prospect
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
+  deals          Deal[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 // CRM - Sales Pipeline
 model Deal {
-  id          String   @id @default(cuid())
-  clientId    String
-  title       String
-  amount      Float
-  currency    String   @default("EUR")
-  status      String   @default("prospecting") // prospecting, qualified, proposal, negotiation, won, lost
-  probability Int      @default(50) // 0-100
+  id           String    @id @default(cuid())
+  clientId     String
+  title        String
+  amount       Float
+  currency     String    @default("EUR")
+  status       String    @default("prospecting") // prospecting, qualified, proposal, negotiation, won, lost
+  probability  Int       @default(50) // 0-100
   expectedDate DateTime?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 // Invoicing
 model Invoice {
   id              String   @id @default(cuid())
-  companyId       String
+  organizationId  String
   clientId        String
-  number          String   @unique
+  number          String
   date            DateTime @default(now())
   dueDate         DateTime
   status          String   @default("draft") // draft, sent, paid, overdue, cancelled
@@ -164,9 +248,14 @@ model Invoice {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items   InvoiceItem[]
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items           InvoiceItem[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([clientId])
 }
 
 model InvoiceItem {
@@ -178,56 +267,64 @@ model InvoiceItem {
   taxRate     Float   @default(20.0)
   total       Float
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 // Financial Planning - Budgets
 model Budget {
-  id        String   @id @default(cuid())
-  companyId String
-  name      String
-  year      Int
-  type      String   @default("annual") // monthly, quarterly, annual
-  status    String   @default("active") // active, archived
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  year           Int
+  type           String   @default("annual") // monthly, quarterly, annual
+  status         String   @default("active") // active, archived
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  company    Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  categories BudgetCategory[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categories     BudgetCategory[]
+
+  @@index([organizationId])
 }
 
 model BudgetCategory {
-  id            String  @id @default(cuid())
-  budgetId      String
-  name          String
-  type          String  // revenue, expense
-  planned       Float
-  actual        Float   @default(0)
-  month         Int?    // 1-12 for monthly budgets
-  quarter       Int?    // 1-4 for quarterly budgets
+  id       String  @id @default(cuid())
+  budgetId String
+  name     String
+  type     String  // revenue, expense
+  planned  Float
+  actual   Float   @default(0)
+  month    Int?    // 1-12 for monthly budgets
+  quarter  Int?    // 1-4 for quarterly budgets
 
-  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budget   Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
 }
 
 // Financial Planning - Scenarios
 model Scenario {
-  id          String   @id @default(cuid())
-  companyId   String
-  name        String
-  description String?
-  type        String   @default("forecast") // forecast, what-if
-  assumptions String?  // JSON string
-  results     String?  // JSON string
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  type           String   @default("forecast") // forecast, what-if
+  assumptions    String?  // JSON string
+  results        String?  // JSON string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 // Stripe Subscriptions
 model Subscription {
   id                   String    @id @default(cuid())
-  companyId            String    @unique
+  organizationId       String    @unique
   stripeSubscriptionId String    @unique
   stripePriceId        String
   stripeProductId      String
@@ -241,5 +338,30 @@ model Subscription {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// AUDIT & COMPLIANCE
+// ==========================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String   // user.created, client.updated, invoice.deleted, etc.
+  resource       String   // user, client, invoice, etc.
+  resourceId     String?
+  metadata       Json?    // Additional context
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
 }

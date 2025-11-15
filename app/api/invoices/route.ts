@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createPrismaScoped } from "@/lib/prisma-scoped"
+import { can } from "@/lib/permissions"
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -35,22 +38,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id },
-      include: { company: true }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
       )
     }
 
-    // Get all invoices for this company
-    const invoices = await prisma.invoice.findMany({
-      where: { companyId: companyMember.companyId },
+    // Check permission to read invoices
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "invoice:read"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de voir les factures" },
+        { status: 403 }
+      )
+    }
+
+    // Use scoped Prisma client
+    const scoped = createPrismaScoped(organizationId)
+
+    // Get all invoices
+    const invoices = await scoped.invoice.findMany({
       include: {
         client: {
           select: {
@@ -64,7 +79,7 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" }
     })
 
-    return NextResponse.json(invoices)
+    return NextResponse.json({ invoices })
 
   } catch (error) {
     console.error("Error fetching invoices:", error)
@@ -84,15 +99,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
+      )
+    }
+
+    // Check permission to create invoices
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "invoice:create"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de créer des factures" },
+        { status: 403 }
       )
     }
 
@@ -120,9 +146,11 @@ export async function POST(req: NextRequest) {
     const taxAmount = subtotal * (validatedData.taxRate / 100)
     const total = subtotal + taxAmount
 
+    // Use scoped Prisma client
+    const scoped = createPrismaScoped(organizationId)
+
     // Generate invoice number (simple increment, you might want a more complex logic)
-    const lastInvoice = await prisma.invoice.findFirst({
-      where: { companyId: companyMember.companyId },
+    const lastInvoice = await scoped.invoice.findFirst({
       orderBy: { createdAt: "desc" }
     })
 
@@ -133,9 +161,8 @@ export async function POST(req: NextRequest) {
     const number = `${year}-${String(lastNumber + 1).padStart(3, '0')}`
 
     // Create invoice with items
-    const invoice = await prisma.invoice.create({
+    const invoice = await scoped.invoice.create({
       data: {
-        companyId: companyMember.companyId,
         clientId: validatedData.clientId,
         number,
         date,
@@ -158,6 +185,20 @@ export async function POST(req: NextRequest) {
         client: true,
         items: true,
       }
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.INVOICE_CREATED,
+      resource: "invoice",
+      resourceId: invoice.id,
+      metadata: {
+        number: invoice.number,
+        clientId: invoice.clientId,
+        total: invoice.total,
+      },
     })
 
     return NextResponse.json(invoice, { status: 201 })

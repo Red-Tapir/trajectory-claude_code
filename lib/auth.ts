@@ -1,9 +1,10 @@
-import { NextAuthOptions } from "next-auth"
+import { NextAuthOptions, User } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
+import { createOrganization } from "@/lib/organization"
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
@@ -23,6 +24,13 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
+          },
+          include: {
+            memberships: {
+              include: {
+                organization: true
+              }
+            }
           }
         })
 
@@ -41,7 +49,7 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          email: user.email,
+          email: user.email!,
           name: user.name,
           image: user.image,
         }
@@ -64,45 +72,122 @@ export const authOptions: NextAuthOptions = {
     signOut: "/",
     error: "/connexion",
   },
-  callbacks: {
-    async signIn({ user, account }) {
-      // For OAuth providers, check if user has a company, if not create one
-      if (account?.provider !== "credentials") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-          include: { companies: true }
+  events: {
+    async createUser({ user }) {
+      // Automatically create organization for new users (OAuth signup)
+      console.log('New user created via OAuth:', user.email)
+
+      const existingMemberships = await prisma.organizationMember.findMany({
+        where: { userId: user.id }
+      })
+
+      // Only create org if user doesn't already have one
+      if (existingMemberships.length === 0) {
+        const organizationName = user.name
+          ? `${user.name}'s Organization`
+          : `${user.email}'s Organization`
+
+        await createOrganization({
+          name: organizationName,
+          userId: user.id,
+          plan: 'trial'
         })
 
-        // If user doesn't have a company, create one
-        if (existingUser && existingUser.companies.length === 0) {
-          const company = await prisma.company.create({
-            data: {
-              name: `Entreprise de ${user.name || user.email}`,
-              plan: "starter",
-              trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
-            }
-          })
-
-          await prisma.companyMember.create({
-            data: {
-              userId: existingUser.id,
-              companyId: company.id,
-              role: "owner",
-            }
-          })
-        }
+        console.log('Created organization for user:', user.email)
       }
+    }
+  },
+  callbacks: {
+    async signIn({ user, account }) {
       return true
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
       }
+
+      // Refresh currentOrganizationId on every JWT creation
+      if (token.id) {
+        const userData = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            id: true,
+            currentOrganizationId: true,
+            memberships: {
+              where: { status: 'active' },
+              take: 1,
+              orderBy: { createdAt: 'asc' }
+            }
+          }
+        })
+
+        if (userData) {
+          // If no current org set, use first membership
+          if (!userData.currentOrganizationId && userData.memberships.length > 0) {
+            const firstOrg = userData.memberships[0].organizationId
+            await prisma.user.update({
+              where: { id: userData.id },
+              data: { currentOrganizationId: firstOrg }
+            })
+            token.currentOrganizationId = firstOrg
+          } else {
+            token.currentOrganizationId = userData.currentOrganizationId
+          }
+        }
+      }
+
+      // Allow updating session from client
+      if (trigger === "update" && session?.currentOrganizationId) {
+        token.currentOrganizationId = session.currentOrganizationId
+      }
+
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.currentOrganizationId = token.currentOrganizationId as string | undefined
+
+        // Fetch organization details
+        if (session.user.currentOrganizationId) {
+          const org = await prisma.organization.findUnique({
+            where: { id: session.user.currentOrganizationId },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              plan: true
+            }
+          })
+
+          if (org) {
+            session.user.organization = org
+          }
+
+          // Fetch user's role in current organization
+          const membership = await prisma.organizationMember.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: session.user.currentOrganizationId,
+                userId: session.user.id
+              }
+            },
+            include: {
+              role: {
+                select: {
+                  name: true,
+                  displayName: true,
+                  priority: true
+                }
+              }
+            }
+          })
+
+          if (membership) {
+            session.user.role = membership.role
+          }
+        }
       }
       return session
     },

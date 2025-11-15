@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createPrismaScoped } from "@/lib/prisma-scoped"
+import { can } from "@/lib/permissions"
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
 import { checkPlanLimit } from "@/lib/subscription"
 
@@ -30,22 +33,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id },
-      include: { company: true }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
       )
     }
 
-    // Get all clients for this company with invoice count and total revenue
-    const clients = await prisma.client.findMany({
-      where: { companyId: companyMember.companyId },
+    // Check permission to read clients
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "client:read"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de voir les clients" },
+        { status: 403 }
+      )
+    }
+
+    // Use scoped Prisma client to automatically filter by organization
+    const scoped = createPrismaScoped(organizationId)
+
+    // Get all clients with invoice count and total revenue
+    const clients = await scoped.client.findMany({
       include: {
         invoices: {
           select: {
@@ -101,20 +116,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
       )
     }
 
+    // Check permission to create clients
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "client:create"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de créer des clients" },
+        { status: 403 }
+      )
+    }
+
     // Vérifier les limites du plan
-    const limitCheck = await checkPlanLimit(companyMember.companyId, 'create_client')
+    const limitCheck = await checkPlanLimit(organizationId, 'create_client')
 
     if (!limitCheck.allowed) {
       return NextResponse.json(
@@ -126,11 +152,24 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = clientSchema.parse(body)
 
-    const client = await prisma.client.create({
-      data: {
-        ...validatedData,
-        companyId: companyMember.companyId,
-      }
+    // Use scoped Prisma client
+    const scoped = createPrismaScoped(organizationId)
+
+    const client = await scoped.client.create({
+      data: validatedData
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.CLIENT_CREATED,
+      resource: "client",
+      resourceId: client.id,
+      metadata: {
+        name: client.name,
+        type: client.type,
+      },
     })
 
     return NextResponse.json(client, { status: 201 })
