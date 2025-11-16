@@ -1,21 +1,30 @@
 -- Trajectory Database Schema
 -- Generated for Supabase PostgreSQL
+-- Multi-Tenant Architecture with RBAC
 
 -- Drop existing tables if they exist (in correct order due to foreign keys)
+DROP TABLE IF EXISTS "AuditLog" CASCADE;
+DROP TABLE IF EXISTS "Subscription" CASCADE;
+DROP TABLE IF EXISTS "Scenario" CASCADE;
 DROP TABLE IF EXISTS "BudgetCategory" CASCADE;
 DROP TABLE IF EXISTS "Budget" CASCADE;
 DROP TABLE IF EXISTS "InvoiceItem" CASCADE;
 DROP TABLE IF EXISTS "Invoice" CASCADE;
 DROP TABLE IF EXISTS "Deal" CASCADE;
 DROP TABLE IF EXISTS "Client" CASCADE;
-DROP TABLE IF EXISTS "Subscription" CASCADE;
-DROP TABLE IF EXISTS "Scenario" CASCADE;
-DROP TABLE IF EXISTS "CompanyMember" CASCADE;
-DROP TABLE IF EXISTS "Company" CASCADE;
+DROP TABLE IF EXISTS "RolePermission" CASCADE;
+DROP TABLE IF EXISTS "Permission" CASCADE;
+DROP TABLE IF EXISTS "OrganizationMember" CASCADE;
+DROP TABLE IF EXISTS "Role" CASCADE;
+DROP TABLE IF EXISTS "Organization" CASCADE;
 DROP TABLE IF EXISTS "VerificationToken" CASCADE;
 DROP TABLE IF EXISTS "Session" CASCADE;
 DROP TABLE IF EXISTS "Account" CASCADE;
 DROP TABLE IF EXISTS "User" CASCADE;
+
+-- ==========================================
+-- AUTHENTICATION & USERS
+-- ==========================================
 
 -- Create User table
 CREATE TABLE "User" (
@@ -25,7 +34,7 @@ CREATE TABLE "User" (
     "emailVerified" TIMESTAMP(3),
     "image" TEXT,
     "password" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'user',
+    "currentOrganizationId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -65,10 +74,15 @@ CREATE TABLE "VerificationToken" (
     CONSTRAINT "VerificationToken_identifier_token_key" UNIQUE ("identifier", "token")
 );
 
--- Create Company table
-CREATE TABLE "Company" (
+-- ==========================================
+-- MULTI-TENANT ORGANIZATION
+-- ==========================================
+
+-- Create Organization table (replaces Company)
+CREATE TABLE "Organization" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL UNIQUE,
     "siret" TEXT UNIQUE,
     "address" TEXT,
     "city" TEXT,
@@ -80,26 +94,78 @@ CREATE TABLE "Company" (
     "plan" TEXT NOT NULL DEFAULT 'trial',
     "trialEndsAt" TIMESTAMP(3),
     "stripeCustomerId" TEXT UNIQUE,
+    "settings" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create CompanyMember table
-CREATE TABLE "CompanyMember" (
+-- Add foreign key for User.currentOrganizationId after Organization is created
+ALTER TABLE "User" ADD CONSTRAINT "User_currentOrganizationId_fkey"
+    FOREIGN KEY ("currentOrganizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- ==========================================
+-- RBAC - ROLES & PERMISSIONS
+-- ==========================================
+
+-- Create Role table
+CREATE TABLE "Role" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "companyId" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'member',
+    "name" TEXT NOT NULL UNIQUE,
+    "displayName" TEXT NOT NULL,
+    "description" TEXT,
+    "isSystem" BOOLEAN NOT NULL DEFAULT false,
+    "priority" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "CompanyMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "CompanyMember_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "CompanyMember_userId_companyId_key" UNIQUE ("userId", "companyId")
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Client table
+-- Create Permission table
+CREATE TABLE "Permission" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "resource" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Permission_resource_action_key" UNIQUE ("resource", "action")
+);
+
+-- Create RolePermission junction table
+CREATE TABLE "RolePermission" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "roleId" TEXT NOT NULL,
+    "permissionId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "RolePermission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "RolePermission_roleId_permissionId_key" UNIQUE ("roleId", "permissionId")
+);
+
+-- Create OrganizationMember table (replaces CompanyMember)
+CREATE TABLE "OrganizationMember" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "organizationId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "roleId" TEXT NOT NULL,
+    "invitedBy" TEXT,
+    "invitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "OrganizationMember_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "OrganizationMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "OrganizationMember_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "OrganizationMember_organizationId_userId_key" UNIQUE ("organizationId", "userId")
+);
+
+-- ==========================================
+-- BUSINESS ENTITIES (TENANT-SCOPED)
+-- ==========================================
+
+-- CRM - Clients
 CREATE TABLE "Client" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "companyId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT,
     "phone" TEXT,
@@ -113,10 +179,10 @@ CREATE TABLE "Client" (
     "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Client_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Client_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create Deal table
+-- CRM - Sales Pipeline
 CREATE TABLE "Deal" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "clientId" TEXT NOT NULL,
@@ -132,12 +198,12 @@ CREATE TABLE "Deal" (
     CONSTRAINT "Deal_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create Invoice table
+-- Invoicing
 CREATE TABLE "Invoice" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "companyId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
-    "number" TEXT NOT NULL UNIQUE,
+    "number" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "dueDate" TIMESTAMP(3) NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'draft',
@@ -153,11 +219,11 @@ CREATE TABLE "Invoice" (
     "recurringPeriod" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Invoice_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "Invoice_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Invoice_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Invoice_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Invoice_organizationId_number_key" UNIQUE ("organizationId", "number")
 );
 
--- Create InvoiceItem table
 CREATE TABLE "InvoiceItem" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "invoiceId" TEXT NOT NULL,
@@ -169,20 +235,19 @@ CREATE TABLE "InvoiceItem" (
     CONSTRAINT "InvoiceItem_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create Budget table
+-- Financial Planning - Budgets
 CREATE TABLE "Budget" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "companyId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "year" INTEGER NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'annual',
     "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Budget_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Budget_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create BudgetCategory table
 CREATE TABLE "BudgetCategory" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "budgetId" TEXT NOT NULL,
@@ -195,10 +260,10 @@ CREATE TABLE "BudgetCategory" (
     CONSTRAINT "BudgetCategory_budgetId_fkey" FOREIGN KEY ("budgetId") REFERENCES "Budget"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create Scenario table
+-- Financial Planning - Scenarios
 CREATE TABLE "Scenario" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "companyId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "type" TEXT NOT NULL DEFAULT 'forecast',
@@ -206,13 +271,13 @@ CREATE TABLE "Scenario" (
     "results" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Scenario_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Scenario_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create Subscription table (Stripe)
+-- Stripe Subscriptions
 CREATE TABLE "Subscription" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "companyId" TEXT NOT NULL UNIQUE,
+    "organizationId" TEXT NOT NULL UNIQUE,
     "stripeSubscriptionId" TEXT NOT NULL UNIQUE,
     "stripePriceId" TEXT NOT NULL,
     "stripeProductId" TEXT NOT NULL,
@@ -225,22 +290,65 @@ CREATE TABLE "Subscription" (
     "trialEnd" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Subscription_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Subscription_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create indexes for better performance
+-- ==========================================
+-- AUDIT & COMPLIANCE
+-- ==========================================
+
+CREATE TABLE "AuditLog" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "organizationId" TEXT NOT NULL,
+    "userId" TEXT,
+    "action" TEXT NOT NULL,
+    "resource" TEXT NOT NULL,
+    "resourceId" TEXT,
+    "metadata" JSONB,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+-- ==========================================
+-- INDEXES FOR PERFORMANCE
+-- ==========================================
+
+-- Authentication indexes
 CREATE INDEX "Account_userId_idx" ON "Account"("userId");
 CREATE INDEX "Session_userId_idx" ON "Session"("userId");
-CREATE INDEX "CompanyMember_userId_idx" ON "CompanyMember"("userId");
-CREATE INDEX "CompanyMember_companyId_idx" ON "CompanyMember"("companyId");
-CREATE INDEX "Client_companyId_idx" ON "Client"("companyId");
+
+-- Organization indexes
+CREATE INDEX "Organization_slug_idx" ON "Organization"("slug");
+
+-- OrganizationMember indexes
+CREATE INDEX "OrganizationMember_userId_idx" ON "OrganizationMember"("userId");
+CREATE INDEX "OrganizationMember_organizationId_idx" ON "OrganizationMember"("organizationId");
+
+-- RBAC indexes
+CREATE INDEX "Role_name_idx" ON "Role"("name");
+CREATE INDEX "Permission_resource_idx" ON "Permission"("resource");
+CREATE INDEX "RolePermission_roleId_idx" ON "RolePermission"("roleId");
+
+-- Business entity indexes
+CREATE INDEX "Client_organizationId_idx" ON "Client"("organizationId");
+CREATE INDEX "Client_organizationId_status_idx" ON "Client"("organizationId", "status");
 CREATE INDEX "Deal_clientId_idx" ON "Deal"("clientId");
-CREATE INDEX "Invoice_companyId_idx" ON "Invoice"("companyId");
+CREATE INDEX "Invoice_organizationId_idx" ON "Invoice"("organizationId");
+CREATE INDEX "Invoice_organizationId_status_idx" ON "Invoice"("organizationId", "status");
 CREATE INDEX "Invoice_clientId_idx" ON "Invoice"("clientId");
 CREATE INDEX "InvoiceItem_invoiceId_idx" ON "InvoiceItem"("invoiceId");
-CREATE INDEX "Budget_companyId_idx" ON "Budget"("companyId");
+CREATE INDEX "Budget_organizationId_idx" ON "Budget"("organizationId");
 CREATE INDEX "BudgetCategory_budgetId_idx" ON "BudgetCategory"("budgetId");
-CREATE INDEX "Scenario_companyId_idx" ON "Scenario"("companyId");
+CREATE INDEX "Scenario_organizationId_idx" ON "Scenario"("organizationId");
+
+-- Audit log indexes
+CREATE INDEX "AuditLog_organizationId_idx" ON "AuditLog"("organizationId");
+CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
+CREATE INDEX "AuditLog_resource_resourceId_idx" ON "AuditLog"("resource", "resourceId");
+CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 
 -- Success message
-SELECT 'Database schema created successfully!' AS message;
+SELECT 'Database schema created successfully! Multi-tenant architecture with RBAC is ready.' AS message;
