@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 import {
   LineChart,
   Line,
@@ -14,22 +16,50 @@ import {
   Legend,
 } from "recharts"
 
-const data = [
-  { month: "Jan", revenue: 12500, expenses: 8200, forecast: 13000 },
-  { month: "Fév", revenue: 15200, expenses: 9100, forecast: 15500 },
-  { month: "Mar", revenue: 18600, expenses: 10500, forecast: 18000 },
-  { month: "Avr", revenue: 16800, expenses: 9800, forecast: 17500 },
-  { month: "Mai", revenue: 21400, expenses: 11200, forecast: 20000 },
-  { month: "Juin", revenue: 24500, expenses: 12800, forecast: 23000 },
-  { month: "Juil", revenue: 22100, expenses: 11900, forecast: 24500 },
-  { month: "Août", revenue: 19800, expenses: 10600, forecast: 21000 },
-  { month: "Sep", revenue: 25300, expenses: 13500, forecast: 26000 },
-  { month: "Oct", revenue: 28700, expenses: 14200, forecast: 28000 },
-  { month: "Nov", revenue: 31200, expenses: 15100, forecast: 30000 },
-  { month: "Déc", revenue: 0, expenses: 0, forecast: 32000 },
-]
+interface ChartDataPoint {
+  month: string
+  revenue: number
+  expenses: number
+  forecast: number
+}
 
 export function RevenueChart() {
+  const [data, setData] = useState<ChartDataPoint[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchChartData() {
+      try {
+        const res = await fetch('/api/dashboard/revenue-chart')
+        if (res.ok) {
+          const result = await res.json()
+          setData(result.data)
+        }
+      } catch (error) {
+        console.error('Error fetching chart data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchChartData()
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className="col-span-1 lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Performance financière</CardTitle>
+          <CardDescription>
+            Revenus, dépenses et prévisions mensuelles
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center h-[350px]">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </CardContent>
+      </Card>
+    )
+  }
   return (
     <Card className="col-span-1 lg:col-span-2">
       <CardHeader>
