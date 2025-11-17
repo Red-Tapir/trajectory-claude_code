@@ -1,7 +1,8 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowUpRight, ArrowDownRight, Euro, FileText, Users, TrendingUp } from "lucide-react"
+import { ArrowUpRight, ArrowDownRight, Euro, FileText, Users, TrendingUp, Loader2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 
 interface KPIData {
@@ -13,36 +14,80 @@ interface KPIData {
   color: string
 }
 
+interface DashboardStats {
+  revenue: number
+  revenueChange: number
+  pendingInvoices: number
+  pendingChange: number
+  activeClients: number
+  activeClientsChange: number
+  cashflow: number
+  cashflowChange: number
+}
+
 export function KPICards() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/dashboard/stats')
+        if (res.ok) {
+          const data = await res.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="flex items-center justify-center h-32">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
   const kpis: KPIData[] = [
     {
       label: "Chiffre d'affaires",
-      value: formatCurrency(45280),
-      change: 12.5,
+      value: formatCurrency(stats?.revenue || 0),
+      change: stats?.revenueChange || 0,
       changeLabel: "vs mois dernier",
       icon: Euro,
       color: "text-green-600 bg-green-100",
     },
     {
       label: "Factures en attente",
-      value: 8,
-      change: -20,
+      value: stats?.pendingInvoices || 0,
+      change: stats?.pendingChange || 0,
       changeLabel: "vs mois dernier",
       icon: FileText,
       color: "text-blue-600 bg-blue-100",
     },
     {
       label: "Clients actifs",
-      value: 24,
-      change: 8.3,
+      value: stats?.activeClients || 0,
+      change: stats?.activeClientsChange || 0,
       changeLabel: "vs mois dernier",
       icon: Users,
       color: "text-purple-600 bg-purple-100",
     },
     {
       label: "Trésorerie",
-      value: formatCurrency(78500),
-      change: 5.2,
+      value: formatCurrency(stats?.cashflow || 0),
+      change: stats?.cashflowChange || 0,
       changeLabel: "vs mois dernier",
       icon: TrendingUp,
       color: "text-primary bg-primary-100",
