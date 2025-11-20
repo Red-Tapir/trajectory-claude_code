@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
     const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        role: 'OWNER', // Seul le owner peut gérer l'abonnement
+        role: {
+          name: 'OWNER', // Seul le owner peut gérer l'abonnement
+        },
       },
       include: {
         organization: true,

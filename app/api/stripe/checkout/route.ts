@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
     const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        role: 'OWNER', // Seul le owner peut souscrire
+        role: {
+          name: 'OWNER', // Seul le owner peut souscrire
+        },
       },
       include: {
         organization: true,
