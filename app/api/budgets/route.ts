@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createPrismaScoped } from "@/lib/prisma-scoped"
+import { can } from "@/lib/permissions"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -32,22 +34,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id },
-      include: { company: true }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
       )
     }
 
-    // Get all budgets for this company
-    const budgets = await prisma.budget.findMany({
-      where: { companyId: companyMember.companyId },
+    // Check permission to read budgets
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "budget:read"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de voir les budgets" },
+        { status: 403 }
+      )
+    }
+
+    // Use scoped Prisma client
+    const scoped = createPrismaScoped(organizationId)
+
+    // Get all budgets for this organization
+    const budgets = await scoped.budget.findMany({
       include: {
         categories: true,
       },
@@ -74,25 +88,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
+      )
+    }
+
+    // Check permission to create budgets
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "budget:create"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Vous n'avez pas la permission de créer des budgets" },
+        { status: 403 }
       )
     }
 
     const body = await req.json()
     const validatedData = budgetSchema.parse(body)
 
+    // Use scoped Prisma client
+    const scoped = createPrismaScoped(organizationId)
+
     // Create budget with categories
-    const budget = await prisma.budget.create({
+    const budget = await scoped.budget.create({
       data: {
-        companyId: companyMember.companyId,
         name: validatedData.name,
         year: validatedData.year,
         type: validatedData.type,
