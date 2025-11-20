@@ -114,12 +114,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = budgetSchema.parse(body)
 
-    // Use scoped Prisma client
-    const scoped = createPrismaScoped(organizationId)
-
-    // Create budget with categories
-    const budget = await scoped.budget.create({
+    // Create budget with categories (using organizationId directly)
+    const budget = await prisma.budget.create({
       data: {
+        organizationId,
         name: validatedData.name,
         year: validatedData.year,
         type: validatedData.type,
