@@ -21,50 +21,56 @@ async function main() {
 
   console.log('✅ Utilisateur créé:', user.email)
 
-  // Créer une entreprise
-  const company = await prisma.company.upsert({
-    where: { id: 'company-demo-1' },
-    update: {},
-    create: {
-      id: 'company-demo-1',
-      name: 'Ma Super Entreprise',
-      siret: '12345678901234',
-      address: '123 Rue de la Demo',
-      city: 'Paris',
-      postalCode: '75001',
-      country: 'France',
-      phone: '+33 1 23 45 67 89',
-      email: 'contact@masuperentreprise.fr',
-      plan: 'pro',
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    },
-  })
-
-  console.log('✅ Entreprise créée:', company.name)
-
-  // Lier l'utilisateur à l'entreprise
-  await prisma.companyMember.upsert({
+  // Créer une organisation (ou récupérer si existe)
+  let organization = await prisma.organization.findFirst({
     where: {
-      userId_companyId: {
-        userId: user.id,
-        companyId: company.id,
+      members: {
+        some: {
+          userId: user.id,
+          role: 'OWNER'
+        }
       }
-    },
-    update: {},
-    create: {
-      userId: user.id,
-      companyId: company.id,
-      role: 'owner',
-    },
+    }
   })
 
-  console.log('✅ Utilisateur lié à l\'entreprise')
+  if (!organization) {
+    organization = await prisma.organization.create({
+      data: {
+        name: 'Ma Super Entreprise',
+        siret: '12345678901234',
+        address: '123 Rue de la Demo',
+        city: 'Paris',
+        postalCode: '75001',
+        country: 'France',
+        phone: '+33 1 23 45 67 89',
+        email: 'contact@masuperentreprise.fr',
+        plan: 'pro',
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        members: {
+          create: {
+            userId: user.id,
+            role: 'OWNER',
+          }
+        }
+      },
+    })
+  }
+
+  console.log('✅ Organisation créée:', organization.name)
+
+  // Update user's currentOrganizationId
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { currentOrganizationId: organization.id }
+  })
+
+  console.log('✅ Utilisateur lié à l\'organisation')
 
   // Créer des clients de démonstration
   const clients = await Promise.all([
     prisma.client.create({
       data: {
-        companyId: company.id,
+        organizationId: organization.id,
         name: 'SARL Dupont',
         email: 'contact@dupont.fr',
         phone: '+33 6 12 34 56 78',
@@ -79,7 +85,7 @@ async function main() {
     }),
     prisma.client.create({
       data: {
-        companyId: company.id,
+        organizationId: organization.id,
         name: 'Tech Solutions',
         email: 'contact@techsolutions.fr',
         phone: '+33 6 23 45 67 89',
@@ -94,7 +100,7 @@ async function main() {
     }),
     prisma.client.create({
       data: {
-        companyId: company.id,
+        organizationId: organization.id,
         name: 'Consulting Pro',
         email: 'contact@consultingpro.fr',
         phone: '+33 6 34 56 78 90',
@@ -119,7 +125,7 @@ async function main() {
 
     const invoice = await prisma.invoice.create({
       data: {
-        companyId: company.id,
+        organizationId: organization.id,
         clientId: client.id,
         number: `2024-${String(45 - i).padStart(3, '0')}`,
         date,
@@ -153,7 +159,7 @@ async function main() {
   // Créer un budget de démonstration
   const budget = await prisma.budget.create({
     data: {
-      companyId: company.id,
+      organizationId: organization.id,
       name: 'Budget 2024',
       year: 2024,
       type: 'annual',
