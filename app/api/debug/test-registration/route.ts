@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { createOrganization } from "@/lib/organization"
 
 export const dynamic = 'force-dynamic'
 
@@ -14,51 +15,38 @@ export async function GET(req: NextRequest) {
     const userCount = await prisma.user.count()
     console.log("✅ User count:", userCount)
 
-    // Test 3: Try to create a test user (with transaction)
+    // Test 3: Try to create a test user with organization
     const testEmail = `test-${Date.now()}@trajectory.test`
     const hashedPassword = await bcrypt.hash("Test1234!", 10)
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Create user
-      const user = await tx.user.create({
-        data: {
-          name: "Test User",
-          email: testEmail,
-          password: hashedPassword,
-        }
-      })
-
-      // Create company
-      const company = await tx.company.create({
-        data: {
-          name: "Test Company",
-          plan: "trial",
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        }
-      })
-
-      // Link user to company
-      await tx.companyMember.create({
-        data: {
-          userId: user.id,
-          companyId: company.id,
-          role: "owner",
-        }
-      })
-
-      // Clean up test data
-      await tx.companyMember.deleteMany({
-        where: { userId: user.id }
-      })
-      await tx.company.delete({
-        where: { id: company.id }
-      })
-      await tx.user.delete({
-        where: { id: user.id }
-      })
-
-      return { user, company }
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        name: "Test User",
+        email: testEmail,
+        password: hashedPassword,
+      }
     })
+
+    // Create organization
+    const organization = await createOrganization({
+      name: "Test Company",
+      userId: user.id,
+      plan: "trial",
+    })
+
+    // Clean up test data
+    await prisma.organizationMember.deleteMany({
+      where: { userId: user.id }
+    })
+    await prisma.organization.delete({
+      where: { id: organization.id }
+    })
+    await prisma.user.delete({
+      where: { id: user.id }
+    })
+
+    const result = { user, organization }
 
     return NextResponse.json({
       success: true,
