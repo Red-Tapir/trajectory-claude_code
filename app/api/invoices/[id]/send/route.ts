@@ -38,7 +38,7 @@ export async function POST(
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,
-        company: {
+        organization: {
           members: {
             some: {
               userId: session.user.id,
@@ -48,7 +48,7 @@ export async function POST(
       },
       include: {
         client: true,
-        company: true,
+        organization: true,
       }
     })
 
