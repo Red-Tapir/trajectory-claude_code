@@ -52,14 +52,14 @@ export async function GET(
     }
 
     // Verify user has access to this client
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: client.companyId
+        organizationId: client.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -98,14 +98,14 @@ export async function PUT(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: client.companyId
+        organizationId: client.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -162,14 +162,14 @@ export async function DELETE(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: client.companyId
+        organizationId: client.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 

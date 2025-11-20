@@ -23,7 +23,7 @@ export async function GET(
       include: {
         client: true,
         items: true,
-        company: true,
+        organization: true,
       }
     })
 
@@ -35,14 +35,14 @@ export async function GET(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: invoice.companyId
+        organizationId: invoice.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 

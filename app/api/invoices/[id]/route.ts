@@ -29,7 +29,7 @@ export async function GET(
       include: {
         client: true,
         items: true,
-        company: {
+        organization: {
           select: {
             name: true,
             siret: true,
@@ -53,14 +53,14 @@ export async function GET(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: invoice.companyId
+        organizationId: invoice.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -99,14 +99,14 @@ export async function PUT(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: invoice.companyId
+        organizationId: invoice.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -164,14 +164,14 @@ export async function DELETE(
     }
 
     // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        companyId: invoice.companyId
+        organizationId: invoice.organizationId
       }
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
