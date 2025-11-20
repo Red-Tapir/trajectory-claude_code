@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     const taxAmount = subtotal * (validatedData.taxRate / 100)
     const total = subtotal + taxAmount
 
-    // Use scoped Prisma client
+    // Use scoped Prisma client for reads
     const scoped = createPrismaScoped(organizationId)
 
     // Generate invoice number (simple increment, you might want a more complex logic)
@@ -161,8 +161,9 @@ export async function POST(req: NextRequest) {
     const number = `${year}-${String(lastNumber + 1).padStart(3, '0')}`
 
     // Create invoice with items
-    const invoice = await scoped.invoice.create({
+    const invoice = await prisma.invoice.create({
       data: {
+        organizationId,
         clientId: validatedData.clientId,
         number,
         date,
