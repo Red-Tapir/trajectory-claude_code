@@ -152,11 +152,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = clientSchema.parse(body)
 
-    // Use scoped Prisma client
-    const scoped = createPrismaScoped(organizationId)
-
-    const client = await scoped.client.create({
-      data: validatedData
+    const client = await prisma.client.create({
+      data: {
+        organizationId,
+        ...validatedData
+      }
     })
 
     // Log audit
