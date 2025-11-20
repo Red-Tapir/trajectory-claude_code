@@ -131,7 +131,7 @@ export const authOptions: NextAuthOptions = {
             })
             token.currentOrganizationId = firstOrg
           } else {
-            token.currentOrganizationId = userData.currentOrganizationId
+            token.currentOrganizationId = userData.currentOrganizationId || undefined
           }
         }
       }
