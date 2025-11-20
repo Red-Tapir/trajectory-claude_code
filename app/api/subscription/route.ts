@@ -12,34 +12,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Récupérer l'entreprise de l'utilisateur
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-      },
+    // Récupérer l'organization de l'utilisateur
+    const organizationId = session.user.currentOrganizationId
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'Aucune organisation trouvée' },
+        { status: 404 }
+      )
+    }
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
       include: {
-        company: {
-          include: {
-            subscription: true,
-          },
-        },
+        subscription: true,
       },
     })
 
-    if (!companyMember) {
+    if (!organization) {
       return NextResponse.json(
-        { error: 'Aucune entreprise trouvée' },
+        { error: 'Organisation non trouvée' },
         { status: 404 }
       )
     }
 
     return NextResponse.json({
-      company: {
-        plan: companyMember.company.plan,
-        trialEndsAt: companyMember.company.trialEndsAt,
-        stripeCustomerId: companyMember.company.stripeCustomerId,
+      organization: {
+        plan: organization.plan,
+        trialEndsAt: organization.trialEndsAt,
+        stripeCustomerId: organization.stripeCustomerId,
       },
-      subscription: companyMember.company.subscription,
+      subscription: organization.subscription,
     })
   } catch (error: any) {
     console.error('Error fetching subscription:', error)
