@@ -5,19 +5,19 @@ import { canPerformAction } from '@/lib/stripe'
  * Vérifie si l'entreprise peut effectuer une action en fonction de son plan
  */
 export async function checkPlanLimit(
-  companyId: string,
+  organizationId: string,
   action: 'create_client' | 'create_invoice' | 'add_user'
 ): Promise<{ allowed: boolean; message?: string; currentPlan?: string }> {
   try {
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
       select: {
         plan: true,
         trialEndsAt: true,
       },
     })
 
-    if (!company) {
+    if (!organization) {
       return {
         allowed: false,
         message: 'Entreprise non trouvée',
@@ -25,15 +25,15 @@ export async function checkPlanLimit(
     }
 
     // Vérifier si l'essai est expiré
-    if (company.plan === 'trial' && company.trialEndsAt) {
+    if (organization.plan === 'trial' && organization.trialEndsAt) {
       const now = new Date()
-      const trialEnd = new Date(company.trialEndsAt)
+      const trialEnd = new Date(organization.trialEndsAt)
 
       if (now > trialEnd) {
         return {
           allowed: false,
           message: 'Votre essai gratuit est expiré. Veuillez souscrire à un plan pour continuer.',
-          currentPlan: company.plan,
+          currentPlan: organization.plan,
         }
       }
     }
@@ -44,7 +44,7 @@ export async function checkPlanLimit(
     switch (action) {
       case 'create_client':
         currentCount = await prisma.client.count({
-          where: { companyId },
+          where: { organizationId },
         })
         break
       case 'create_invoice':
@@ -55,7 +55,7 @@ export async function checkPlanLimit(
 
         currentCount = await prisma.invoice.count({
           where: {
-            companyId,
+            organizationId,
             createdAt: {
               gte: firstDay,
               lte: lastDay,
@@ -64,17 +64,17 @@ export async function checkPlanLimit(
         })
         break
       case 'add_user':
-        currentCount = await prisma.companyMember.count({
-          where: { companyId },
+        currentCount = await prisma.organizationMember.count({
+          where: { organizationId },
         })
         break
     }
 
-    const result = canPerformAction(company.plan, action, currentCount)
+    const result = canPerformAction(organization.plan, action, currentCount)
 
     return {
       ...result,
-      currentPlan: company.plan,
+      currentPlan: organization.plan,
     }
   } catch (error) {
     console.error('Error checking plan limit:', error)
@@ -88,10 +88,10 @@ export async function checkPlanLimit(
 /**
  * Vérifie si l'entreprise a un abonnement actif
  */
-export async function hasActiveSubscription(companyId: string): Promise<boolean> {
+export async function hasActiveSubscription(organizationId: string): Promise<boolean> {
   try {
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
       select: {
         plan: true,
         trialEndsAt: true,
@@ -103,21 +103,21 @@ export async function hasActiveSubscription(companyId: string): Promise<boolean>
       },
     })
 
-    if (!company) {
+    if (!organization) {
       return false
     }
 
     // Si en essai et pas expiré
-    if (company.plan === 'trial' && company.trialEndsAt) {
+    if (organization.plan === 'trial' && organization.trialEndsAt) {
       const now = new Date()
-      const trialEnd = new Date(company.trialEndsAt)
+      const trialEnd = new Date(organization.trialEndsAt)
       if (now <= trialEnd) {
         return true
       }
     }
 
     // Si abonnement payant actif
-    if (company.subscription && company.subscription.status === 'active') {
+    if (organization.subscription && organization.subscription.status === 'active') {
       return true
     }
 
