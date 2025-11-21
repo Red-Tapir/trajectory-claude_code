@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createPrismaScoped } from "@/lib/prisma-scoped"
+import { can } from "@/lib/permissions"
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -32,22 +35,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id },
-      include: { company: true }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
       )
     }
 
-    // Get all budgets for this company
-    const budgets = await prisma.budget.findMany({
-      where: { companyId: companyMember.companyId },
+    // Check permission to read budgets
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "budget:read"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Permission refusée" },
+        { status: 403 }
+      )
+    }
+
+    // Get all budgets for this organization using scoped prisma
+    const scoped = createPrismaScoped(organizationId)
+    const budgets = await scoped.budget.findMany({
       include: {
         categories: true,
       },
@@ -74,15 +87,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Get user's company
-    const companyMember = await prisma.companyMember.findFirst({
-      where: { userId: session.user.id }
-    })
+    const organizationId = session.user.currentOrganizationId
 
-    if (!companyMember) {
+    if (!organizationId) {
       return NextResponse.json(
-        { error: "Entreprise non trouvée" },
+        { error: "Organisation non trouvée" },
         { status: 404 }
+      )
+    }
+
+    // Check permission to create budgets
+    const hasPermission = await can(
+      session.user.id,
+      organizationId,
+      "budget:create"
+    )
+
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Permission refusée" },
+        { status: 403 }
       )
     }
 
@@ -92,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Create budget with categories
     const budget = await prisma.budget.create({
       data: {
-        companyId: companyMember.companyId,
+        organizationId,
         name: validatedData.name,
         year: validatedData.year,
         type: validatedData.type,
@@ -103,6 +127,19 @@ export async function POST(req: NextRequest) {
       },
       include: {
         categories: true,
+      }
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.BUDGET_CREATED,
+      resource: "budget",
+      resourceId: budget.id,
+      metadata: {
+        name: budget.name,
+        year: budget.year,
       }
     })
 

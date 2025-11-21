@@ -12,13 +12,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Récupérer l'entreprise de l'utilisateur
-    const companyMember = await prisma.companyMember.findFirst({
+    // Récupérer l'organisation de l'utilisateur
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
       },
       include: {
-        company: {
+        organization: {
           include: {
             subscription: true,
           },
@@ -26,20 +26,20 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json(
-        { error: 'Aucune entreprise trouvée' },
+        { error: 'Aucune organisation trouvée' },
         { status: 404 }
       )
     }
 
     return NextResponse.json({
-      company: {
-        plan: companyMember.company.plan,
-        trialEndsAt: companyMember.company.trialEndsAt,
-        stripeCustomerId: companyMember.company.stripeCustomerId,
+      organization: {
+        plan: organizationMember.organization.plan,
+        trialEndsAt: organizationMember.organization.trialEndsAt,
+        stripeCustomerId: organizationMember.organization.stripeCustomerId,
       },
-      subscription: companyMember.company.subscription,
+      subscription: organizationMember.organization.subscription,
     })
   } catch (error: any) {
     console.error('Error fetching subscription:', error)

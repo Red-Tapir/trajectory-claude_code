@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  const companyId = session.metadata?.companyId
+  const organizationId = session.metadata?.organizationId
   const planId = session.metadata?.planId
 
-  if (!companyId || !planId) {
+  if (!organizationId || !planId) {
     console.error('Missing metadata in checkout session')
     return
   }
@@ -79,9 +79,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const subscriptionId = session.subscription as string
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-  // Mettre à jour l'entreprise avec le nouveau plan
-  await prisma.company.update({
-    where: { id: companyId },
+  // Mettre à jour l'organisation avec le nouveau plan
+  await prisma.organization.update({
+    where: { id: organizationId },
     data: {
       plan: planId,
       trialEndsAt: subscription.trial_end
@@ -92,9 +92,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   // Créer l'enregistrement de subscription
   await prisma.subscription.upsert({
-    where: { companyId },
+    where: { organizationId },
     create: {
-      companyId,
+      organizationId,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0].price.id,
       stripeProductId: subscription.items.data[0].price.product as string,
@@ -125,27 +125,27 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     },
   })
 
-  console.log(`Checkout completed for company ${companyId}`)
+  console.log(`Checkout completed for organization ${organizationId}`)
 }
 
 async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
-  const companyId = subscription.metadata?.companyId
+  const organizationId = subscription.metadata?.organizationId
 
-  if (!companyId) {
-    // Essayer de trouver la companyId via le customer
-    const company = await prisma.company.findFirst({
+  if (!organizationId) {
+    // Essayer de trouver l'organizationId via le customer
+    const organization = await prisma.organization.findFirst({
       where: { stripeCustomerId: subscription.customer as string },
     })
 
-    if (!company) {
-      console.error('Company not found for subscription update')
+    if (!organization) {
+      console.error('Organization not found for subscription update')
       return
     }
   }
 
   const planId = subscription.metadata?.planId || 'starter'
 
-  await prisma.company.update({
+  await prisma.organization.update({
     where: {
       stripeCustomerId: subscription.customer as string,
     },
@@ -162,7 +162,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       stripeSubscriptionId: subscription.id,
     },
     create: {
-      companyId: companyId || (await getCompanyIdByCustomer(subscription.customer as string))!,
+      organizationId: organizationId || (await getOrganizationIdByCustomer(subscription.customer as string))!,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0].price.id,
       stripeProductId: subscription.items.data[0].price.product as string,
@@ -204,7 +204,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   // Rétrograder au plan trial
-  await prisma.company.update({
+  await prisma.organization.update({
     where: {
       stripeCustomerId: subscription.customer as string,
     },
@@ -244,10 +244,10 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
-async function getCompanyIdByCustomer(customerId: string): Promise<string | null> {
-  const company = await prisma.company.findFirst({
+async function getOrganizationIdByCustomer(customerId: string): Promise<string | null> {
+  const organization = await prisma.organization.findFirst({
     where: { stripeCustomerId: customerId },
     select: { id: true },
   })
-  return company?.id || null
+  return organization?.id || null
 }

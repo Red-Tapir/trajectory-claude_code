@@ -27,44 +27,55 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Récupérer l'entreprise de l'utilisateur
-    const companyMember = await prisma.companyMember.findFirst({
+    // Récupérer l'organisation de l'utilisateur
+    const ownerRole = await prisma.role.findUnique({
+      where: { name: 'owner' }
+    })
+
+    if (!ownerRole) {
+      return NextResponse.json(
+        { error: 'Configuration système invalide' },
+        { status: 500 }
+      )
+    }
+
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        role: 'owner', // Seul le owner peut souscrire
+        roleId: ownerRole.id, // Seul le owner peut souscrire
       },
       include: {
-        company: true,
+        organization: true,
       },
     })
 
-    if (!companyMember) {
+    if (!organizationMember) {
       return NextResponse.json(
-        { error: 'Vous devez être propriétaire d\'une entreprise pour souscrire' },
+        { error: 'Vous devez être propriétaire d\'une organisation pour souscrire' },
         { status: 403 }
       )
     }
 
-    const company = companyMember.company
+    const organization = organizationMember.organization
     const plan = PLANS[planId as PlanId]
 
     // Créer ou récupérer le customer Stripe
-    let stripeCustomerId = company.stripeCustomerId
+    let stripeCustomerId = organization.stripeCustomerId
 
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: session.user.email!,
-        name: company.name,
+        name: organization.name,
         metadata: {
-          companyId: company.id,
+          organizationId: organization.id,
           userId: session.user.id,
         },
       })
       stripeCustomerId = customer.id
 
-      // Mettre à jour l'entreprise avec le customer ID
-      await prisma.company.update({
-        where: { id: company.id },
+      // Mettre à jour l'organisation avec le customer ID
+      await prisma.organization.update({
+        where: { id: organization.id },
         data: { stripeCustomerId },
       })
     }
@@ -83,14 +94,14 @@ export async function POST(req: NextRequest) {
       success_url: `${process.env.NEXTAUTH_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing?canceled=true`,
       metadata: {
-        companyId: company.id,
+        organizationId: organization.id,
         userId: session.user.id,
         planId,
       },
       subscription_data: {
         trial_period_days: 14, // 14 jours d'essai gratuit
         metadata: {
-          companyId: company.id,
+          organizationId: organization.id,
           planId,
         },
       },
