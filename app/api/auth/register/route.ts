@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { sendWelcomeEmail } from "@/lib/email"
 import { authLimiter, getClientIdentifier, checkRateLimit } from "@/lib/rate-limit"
+import { createOrganization } from "@/lib/organization"
 
 const registerSchema = z.object({
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
@@ -53,50 +54,38 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 10)
 
-    // Create user and company in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create user
-      const user = await tx.user.create({
-        data: {
-          name: `${validatedData.firstName} ${validatedData.lastName}`,
-          email: validatedData.email,
-          password: hashedPassword,
-        }
-      })
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        name: `${validatedData.firstName} ${validatedData.lastName}`,
+        email: validatedData.email,
+        password: hashedPassword,
+      }
+    })
 
-      // Create company
-      const company = await tx.company.create({
-        data: {
-          name: validatedData.company,
-          plan: "starter",
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
-        }
-      })
-
-      // Link user to company
-      await tx.companyMember.create({
-        data: {
-          userId: user.id,
-          companyId: company.id,
-          role: "owner",
-        }
-      })
-
-      return { user, company }
+    // Create organization with user as owner
+    const organization = await createOrganization({
+      name: validatedData.company,
+      userId: user.id,
+      plan: "trial",
+      metadata: {
+        ipAddress: req.headers.get('x-forwarded-for') || undefined,
+        userAgent: req.headers.get('user-agent') || undefined,
+      }
     })
 
     // Send welcome email (non-blocking)
     sendWelcomeEmail({
-      to: result.user.email,
-      name: result.user.name || 'Utilisateur',
+      to: user.email,
+      name: user.name || 'Utilisateur',
     }).catch(err => console.error('Failed to send welcome email:', err))
 
     return NextResponse.json({
       message: "Compte créé avec succès",
       user: {
-        id: result.user.id,
-        name: result.user.name,
-        email: result.user.email,
+        id: user.id,
+        name: user.name,
+        email: user.email,
       }
     }, { status: 201 })
 

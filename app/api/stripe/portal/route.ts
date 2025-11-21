@@ -13,18 +13,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Récupérer l'entreprise de l'utilisateur
-    const companyMember = await prisma.companyMember.findFirst({
+    // Récupérer l'organisation de l'utilisateur
+    const ownerRole = await prisma.role.findUnique({
+      where: { name: 'owner' }
+    })
+
+    if (!ownerRole) {
+      return NextResponse.json(
+        { error: 'Configuration système invalide' },
+        { status: 500 }
+      )
+    }
+
+    const organizationMember = await prisma.organizationMember.findFirst({
       where: {
         userId: session.user.id,
-        role: 'owner', // Seul le owner peut gérer l'abonnement
+        roleId: ownerRole.id, // Seul le owner peut gérer l'abonnement
       },
       include: {
-        company: true,
+        organization: true,
       },
     })
 
-    if (!companyMember?.company?.stripeCustomerId) {
+    if (!organizationMember?.organization?.stripeCustomerId) {
       return NextResponse.json(
         { error: 'Aucun abonnement actif' },
         { status: 404 }
@@ -33,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     // Créer une session du portail client Stripe
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: companyMember.company.stripeCustomerId,
+      customer: organizationMember.organization.stripeCustomerId,
       return_url: `${process.env.NEXTAUTH_URL}/dashboard/billing`,
     })
 
