@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { can } from "@/lib/permissions"
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +31,7 @@ export async function GET(
       include: {
         client: true,
         items: true,
-        company: {
+        organization: {
           select: {
             name: true,
             siret: true,
@@ -52,15 +54,14 @@ export async function GET(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: invoice.companyId
-      }
-    })
+    // Verify user has permission to read invoices
+    const hasPermission = await can(
+      session.user.id,
+      invoice.organizationId,
+      "invoice:read"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -98,15 +99,14 @@ export async function PUT(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: invoice.companyId
-      }
-    })
+    // Verify user has permission to update invoices
+    const hasPermission = await can(
+      session.user.id,
+      invoice.organizationId,
+      "invoice:update"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -119,6 +119,18 @@ export async function PUT(
       include: {
         client: true,
         items: true,
+      }
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId: invoice.organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.INVOICE_UPDATED,
+      resource: "invoice",
+      resourceId: invoice.id,
+      metadata: {
+        changes: validatedData
       }
     })
 
@@ -163,15 +175,14 @@ export async function DELETE(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: invoice.companyId
-      }
-    })
+    // Verify user has permission to delete invoices
+    const hasPermission = await can(
+      session.user.id,
+      invoice.organizationId,
+      "invoice:delete"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -186,6 +197,18 @@ export async function DELETE(
     // Delete invoice and its items (cascade)
     await prisma.invoice.delete({
       where: { id: params.id }
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId: invoice.organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.INVOICE_DELETED,
+      resource: "invoice",
+      resourceId: invoice.id,
+      metadata: {
+        number: invoice.number
+      }
     })
 
     return NextResponse.json({ message: "Facture supprimée avec succès" })
