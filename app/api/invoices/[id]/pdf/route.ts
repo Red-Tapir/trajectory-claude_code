@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { can } from "@/lib/permissions"
 import { generateInvoicePDF } from "@/lib/pdf-generator"
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export async function GET(
       include: {
         client: true,
         items: true,
-        company: true,
+        organization: true,
       }
     })
 
@@ -34,15 +35,14 @@ export async function GET(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: invoice.companyId
-      }
-    })
+    // Verify user has permission to read invoices
+    const hasPermission = await can(
+      session.user.id,
+      invoice.organizationId,
+      "invoice:read"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 

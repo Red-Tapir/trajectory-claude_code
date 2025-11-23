@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { can } from "@/lib/permissions"
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -51,15 +53,14 @@ export async function GET(
       )
     }
 
-    // Verify user has access to this client
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: client.companyId
-      }
-    })
+    // Verify user has access to this client's organization
+    const hasPermission = await can(
+      session.user.id,
+      client.organizationId,
+      "client:read"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -97,15 +98,14 @@ export async function PUT(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: client.companyId
-      }
-    })
+    // Verify user has permission to update clients
+    const hasPermission = await can(
+      session.user.id,
+      client.organizationId,
+      "client:update"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -115,6 +115,18 @@ export async function PUT(
     const updatedClient = await prisma.client.update({
       where: { id: params.id },
       data: validatedData
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId: client.organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.CLIENT_UPDATED,
+      resource: "client",
+      resourceId: client.id,
+      metadata: {
+        changes: validatedData
+      }
     })
 
     return NextResponse.json(updatedClient)
@@ -161,15 +173,14 @@ export async function DELETE(
       )
     }
 
-    // Verify user has access
-    const companyMember = await prisma.companyMember.findFirst({
-      where: {
-        userId: session.user.id,
-        companyId: client.companyId
-      }
-    })
+    // Verify user has permission to delete clients
+    const hasPermission = await can(
+      session.user.id,
+      client.organizationId,
+      "client:delete"
+    )
 
-    if (!companyMember) {
+    if (!hasPermission) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
@@ -183,6 +194,18 @@ export async function DELETE(
 
     await prisma.client.delete({
       where: { id: params.id }
+    })
+
+    // Log audit
+    await logAudit({
+      organizationId: client.organizationId,
+      userId: session.user.id,
+      action: AUDIT_ACTIONS.CLIENT_DELETED,
+      resource: "client",
+      resourceId: client.id,
+      metadata: {
+        name: client.name
+      }
     })
 
     return NextResponse.json({ message: "Client supprimé avec succès" })
