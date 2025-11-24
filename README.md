@@ -318,86 +318,17 @@ L'application est entièrement responsive et optimisée pour:
 
 ## 🚀 Déploiement
 
-### Prérequis de production
+### Railway (Recommandé)
 
-Avant de déployer, créez des comptes et configurez:
+Nous recommandons **Railway** pour le déploiement car il simplifie la gestion de la base de données et du site web en un seul endroit.
 
-1. **Base de données PostgreSQL**
-   - [Supabase](https://supabase.com/) (recommandé, plan gratuit)
-   - [Neon](https://neon.tech/) (serverless PostgreSQL)
-   - [Railway](https://railway.app/)
+👉 **[Voir le Guide de Déploiement Railway](./RAILWAY_DEPLOYMENT_GUIDE.md)**
 
-2. **Resend** (emails)
-   - Créer un compte sur [resend.com](https://resend.com)
-   - Obtenir une clé API
-   - Vérifier votre domaine d'envoi
-
-3. **Upstash Redis** (rate limiting)
-   - Créer un compte sur [upstash.com](https://upstash.com)
-   - Créer une base Redis
-   - Copier les credentials REST API
-
-4. **OAuth (optionnel)**
-   - **Google**: [Console Google Cloud](https://console.cloud.google.com)
-   - **GitHub**: [GitHub OAuth Apps](https://github.com/settings/developers)
-
-5. **Sentry** (monitoring - optionnel)
-   - Créer un compte sur [sentry.io](https://sentry.io)
-   - Créer un projet Next.js
-   - Copier le DSN
-
-### Vercel (recommandé)
-
-```bash
-npm run build
-vercel deploy --prod
-```
-
-Configurez **toutes** les variables d'environnement dans Vercel:
-
-```env
-# Database
-DATABASE_URL="postgresql://..."
-
-# NextAuth
-NEXTAUTH_URL="https://votre-domaine.com"
-NEXTAUTH_SECRET="generer-avec-openssl-rand-base64-32"
-
-# OAuth (optionnel)
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-GITHUB_ID="..."
-GITHUB_SECRET="..."
-
-# Email (Resend)
-RESEND_API_KEY="re_..."
-FROM_EMAIL="noreply@votre-domaine.com"
-
-# Rate Limiting (Upstash)
-UPSTASH_REDIS_REST_URL="https://..."
-UPSTASH_REDIS_REST_TOKEN="..."
-
-# Monitoring (Sentry - optionnel)
-NEXT_PUBLIC_SENTRY_DSN="https://..."
-SENTRY_AUTH_TOKEN="..."
-SENTRY_ORG="..."
-SENTRY_PROJECT="..."
-
-# App
-NEXT_PUBLIC_APP_URL="https://votre-domaine.com"
-```
-
-### Railway / Render
-
-```bash
-# Build
-npm run build
-
-# Start
-npm run start
-```
-
-Configurez les mêmes variables d'environnement que pour Vercel.
+Ce guide contient toutes les étapes pour :
+1. Déployer le projet depuis GitHub
+2. Configurer la base de données PostgreSQL gérée par Railway
+3. Configurer les variables d'environnement (Stripe, NextAuth, etc.)
+4. Initialiser la base de données
 
 ### Docker
 
@@ -413,13 +344,10 @@ docker run -p 3000:3000 \
 ### ⚠️ Checklist avant déploiement
 
 - [ ] PostgreSQL configuré et accessible
-- [ ] Migrations Prisma appliquées (`npx prisma migrate deploy`)
 - [ ] Variables d'environnement configurées
 - [ ] Domaine d'envoi vérifié dans Resend
 - [ ] OAuth credentials configurés (si utilisé)
-- [ ] NEXTAUTH_SECRET généré avec `openssl rand -base64 32`
-- [ ] Upstash Redis créé et configuré
-- [ ] Sentry projet créé (optionnel)
+- [ ] NEXTAUTH_SECRET généré
 - [ ] Tests passent (`npm run test`)
 - [ ] Build réussit (`npm run build`)
 
