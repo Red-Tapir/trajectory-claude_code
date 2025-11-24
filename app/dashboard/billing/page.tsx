@@ -92,7 +92,7 @@ export default function BillingPage() {
     )
   }
 
-  const currentPlan = subscriptionData.company.plan
+  const currentPlan = subscriptionData.organization.plan
   const plan = PLANS[currentPlan as keyof typeof PLANS]
   const subscription = subscriptionData.subscription
   const isOnTrial = currentPlan === 'trial'
@@ -130,12 +130,12 @@ export default function BillingPage() {
               </div>
             )}
 
-            {isOnTrial && subscriptionData.company.trialEndsAt && (
+            {isOnTrial && subscriptionData.organization.trialEndsAt && (
               <div className="flex items-center gap-2 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
                 <AlertCircle className="h-4 w-4" />
                 <span>
                   Essai gratuit jusqu'au{' '}
-                  {new Date(subscriptionData.company.trialEndsAt).toLocaleDateString('fr-FR')}
+                  {new Date(subscriptionData.organization.trialEndsAt).toLocaleDateString('fr-FR')}
                 </span>
               </div>
             )}

@@ -63,24 +63,24 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   yPos += 10
   doc.setFontSize(10)
   doc.setTextColor(grayColor[0], grayColor[1], grayColor[2])
-  if (invoice.company.address) {
-    doc.text(invoice.company.address, 20, yPos)
+  if (invoice.organization.address) {
+    doc.text(invoice.organization.address, 20, yPos)
     yPos += 5
   }
-  if (invoice.company.city) {
-    doc.text(`${invoice.company.postalCode || ""} ${invoice.company.city}`, 20, yPos)
+  if (invoice.organization.city) {
+    doc.text(`${invoice.organization.postalCode || ""} ${invoice.organization.city}`, 20, yPos)
     yPos += 5
   }
-  if (invoice.company.siret) {
-    doc.text(`SIRET: ${invoice.company.siret}`, 20, yPos)
+  if (invoice.organization.siret) {
+    doc.text(`SIRET: ${invoice.organization.siret}`, 20, yPos)
     yPos += 5
   }
-  if (invoice.company.email) {
-    doc.text(invoice.company.email, 20, yPos)
+  if (invoice.organization.email) {
+    doc.text(invoice.organization.email, 20, yPos)
     yPos += 5
   }
-  if (invoice.company.phone) {
-    doc.text(invoice.company.phone, 20, yPos)
+  if (invoice.organization.phone) {
+    doc.text(invoice.organization.phone, 20, yPos)
   }
 
   // Invoice Title and Number
