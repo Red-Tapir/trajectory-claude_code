@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
     // Create invoice with items
     const invoice = await scoped.invoice.create({
       data: {
+        organizationId,
         clientId: validatedData.clientId,
         number,
         date,
