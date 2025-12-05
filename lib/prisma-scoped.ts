@@ -1,11 +1,12 @@
-import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma as globalPrisma } from './prisma'
 
 /**
  * Create a Prisma client scoped to a specific organization
  *
- * This automatically adds organizationId filter to all queries for tenant-scoped models.
+ * This automatically adds organizationId filter to all READ queries for tenant-scoped models.
  * Prevents accidental cross-tenant data leaks.
+ * 
+ * Note: For create operations, you must explicitly pass organizationId in the data.
  *
  * @param organizationId - Organization ID to scope queries to
  * @returns Scoped Prisma client
@@ -28,27 +29,28 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async findUnique({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          // For findUnique, we add to the where clause
+          const where = args.where as any
+          if (where.id) {
+            args.where = { ...where, organizationId }
+          }
           return query(args)
         },
         async count({ args, query }) {
           args.where = { ...args.where, organizationId }
           return query(args)
         },
-        async create({ args, query }) {
-          args.data = { ...args.data, organizationId }
-          return query(args)
-        },
-        async createMany({ args, query }) {
-          if (Array.isArray(args.data)) {
-            args.data = args.data.map(d => ({ ...d, organizationId }))
-          } else {
-            args.data = { ...args.data, organizationId }
-          }
-          return query(args)
-        },
         async update({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            // Verify organization access before update
+            const existing = await globalPrisma.client.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Client not found or access denied')
+            }
+          }
           return query(args)
         },
         async updateMany({ args, query }) {
@@ -56,7 +58,16 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async delete({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            // Verify organization access before delete
+            const existing = await globalPrisma.client.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Client not found or access denied')
+            }
+          }
           return query(args)
         },
         async deleteMany({ args, query }) {
@@ -76,27 +87,26 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async findUnique({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            args.where = { ...where, organizationId }
+          }
           return query(args)
         },
         async count({ args, query }) {
           args.where = { ...args.where, organizationId }
           return query(args)
         },
-        async create({ args, query }) {
-          args.data = { ...args.data, organizationId }
-          return query(args)
-        },
-        async createMany({ args, query }) {
-          if (Array.isArray(args.data)) {
-            args.data = args.data.map(d => ({ ...d, organizationId }))
-          } else {
-            args.data = { ...args.data, organizationId }
-          }
-          return query(args)
-        },
         async update({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.invoice.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Invoice not found or access denied')
+            }
+          }
           return query(args)
         },
         async updateMany({ args, query }) {
@@ -104,7 +114,15 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async delete({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.invoice.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Invoice not found or access denied')
+            }
+          }
           return query(args)
         },
         async deleteMany({ args, query }) {
@@ -124,19 +142,26 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async findUnique({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            args.where = { ...where, organizationId }
+          }
           return query(args)
         },
         async count({ args, query }) {
           args.where = { ...args.where, organizationId }
           return query(args)
         },
-        async create({ args, query }) {
-          args.data = { ...args.data, organizationId }
-          return query(args)
-        },
         async update({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.budget.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Budget not found or access denied')
+            }
+          }
           return query(args)
         },
         async updateMany({ args, query }) {
@@ -144,7 +169,15 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async delete({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.budget.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Budget not found or access denied')
+            }
+          }
           return query(args)
         },
         async deleteMany({ args, query }) {
@@ -164,19 +197,26 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async findUnique({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            args.where = { ...where, organizationId }
+          }
           return query(args)
         },
         async count({ args, query }) {
           args.where = { ...args.where, organizationId }
           return query(args)
         },
-        async create({ args, query }) {
-          args.data = { ...args.data, organizationId }
-          return query(args)
-        },
         async update({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.scenario.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Scenario not found or access denied')
+            }
+          }
           return query(args)
         },
         async updateMany({ args, query }) {
@@ -184,7 +224,15 @@ export function createPrismaScoped(organizationId: string) {
           return query(args)
         },
         async delete({ args, query }) {
-          args.where = { ...args.where, organizationId }
+          const where = args.where as any
+          if (where.id) {
+            const existing = await globalPrisma.scenario.findFirst({
+              where: { id: where.id, organizationId }
+            })
+            if (!existing) {
+              throw new Error('Scenario not found or access denied')
+            }
+          }
           return query(args)
         },
         async deleteMany({ args, query }) {
@@ -193,7 +241,7 @@ export function createPrismaScoped(organizationId: string) {
         },
       },
     },
-  }) as PrismaClient
+  })
 }
 
 /**

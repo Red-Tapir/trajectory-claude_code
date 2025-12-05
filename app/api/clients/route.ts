@@ -152,10 +152,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = clientSchema.parse(body)
 
-    // Use scoped Prisma client
-    const scoped = createPrismaScoped(organizationId)
-
-    const client = await scoped.client.create({
+    // Use prisma directly for create (scoped only filters reads)
+    const client = await prisma.client.create({
       data: {
         ...validatedData,
         organizationId
