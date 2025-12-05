@@ -19,7 +19,7 @@ export function getStripe(): Stripe {
 // For backward compatibility
 export const stripe = typeof process.env.STRIPE_SECRET_KEY !== 'undefined' && process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-11-20.acacia',
+      apiVersion: '2025-02-24.acacia',
       typescript: true,
     })
   : (null as unknown as Stripe)
