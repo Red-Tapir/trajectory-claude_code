@@ -11,8 +11,6 @@ import { Badge } from '@/components/ui/badge'
 import { CreditCard, Calendar, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { PLANS, formatPrice } from '@/lib/stripe'
 
-export const dynamic = 'force-dynamic'
-
 interface SubscriptionData {
   organization: {
     plan: string
