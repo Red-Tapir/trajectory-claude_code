@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { KPICards } from "@/components/dashboard/kpi-cards"
 import { RevenueChart } from "@/components/dashboard/revenue-chart"
 import { CashflowChart } from "@/components/dashboard/cashflow-chart"
