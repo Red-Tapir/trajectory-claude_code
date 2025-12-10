@@ -13,27 +13,6 @@ interface OnboardingDialogProps {
   onComplete: () => void
 }
 
-const steps = [
-  {
-    id: 1,
-    title: "Bienvenue sur Trajectory ! 🎉",
-    description: "Configurons votre espace de travail en quelques étapes.",
-    icon: Building,
-  },
-  {
-    id: 2,
-    title: "Informations de votre entreprise",
-    description: "Ces informations apparaîtront sur vos factures.",
-    icon: FileText,
-  },
-  {
-    id: 3,
-    title: "Vous êtes prêt !",
-    description: "Votre espace est configuré. Commencez à créer vos premières factures.",
-    icon: CheckCircle2,
-  },
-]
-
 export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -51,7 +30,6 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
     if (currentStep === 1) {
       setCurrentStep(2)
     } else if (currentStep === 2) {
-      // Save organization data
       setLoading(true)
       try {
         const response = await fetch("/api/organizations/current", {
@@ -79,7 +57,6 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
         setLoading(false)
       }
     } else {
-      // Mark onboarding complete
       localStorage.setItem("trajectory_onboarding_complete", "true")
       onComplete()
     }
@@ -90,28 +67,40 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
     onComplete()
   }
 
+  const stepTitles = [
+    "Bienvenue sur Trajectory ! 🎉",
+    "Informations de votre entreprise",
+    "Vous êtes prêt !"
+  ]
+
+  const stepDescriptions = [
+    "Configurons votre espace de travail en quelques étapes.",
+    "Ces informations apparaîtront sur vos factures.",
+    "Votre espace est configuré. Commencez à créer vos premières factures."
+  ]
+
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="max-w-lg" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {steps[currentStep - 1].icon && (
-              <steps[currentStep - 1].icon className="h-6 w-6 text-primary" />
-            )}
-            {steps[currentStep - 1].title}
+            {currentStep === 1 && <Building className="h-6 w-6 text-primary" />}
+            {currentStep === 2 && <FileText className="h-6 w-6 text-primary" />}
+            {currentStep === 3 && <CheckCircle2 className="h-6 w-6 text-primary" />}
+            {stepTitles[currentStep - 1]}
           </DialogTitle>
           <DialogDescription>
-            {steps[currentStep - 1].description}
+            {stepDescriptions[currentStep - 1]}
           </DialogDescription>
         </DialogHeader>
 
         {/* Progress indicator */}
         <div className="flex gap-2 my-4">
-          {steps.map((step) => (
+          {[1, 2, 3].map((step) => (
             <div
-              key={step.id}
+              key={step}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                step.id <= currentStep ? "bg-primary" : "bg-muted"
+                step <= currentStep ? "bg-primary" : "bg-muted"
               }`}
             />
           ))}
@@ -157,7 +146,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
         {currentStep === 2 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="companyName">Nom de l'entreprise</Label>
+              <Label htmlFor="companyName">Nom de l&apos;entreprise</Label>
               <Input
                 id="companyName"
                 value={formData.companyName}
