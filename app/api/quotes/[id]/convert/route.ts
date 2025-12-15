@@ -12,20 +12,20 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     // Check both quote and invoice permissions
     const hasQuotePermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "quote",
       "update"
     )
     const hasInvoicePermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "invoice",
       "create"
     )
@@ -37,7 +37,7 @@ export async function POST(
     const quote = await prisma.quote.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
       },
       include: {
         client: true,
@@ -61,7 +61,7 @@ export async function POST(
     const year = new Date().getFullYear()
     const lastInvoice = await prisma.invoice.findFirst({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
         number: { startsWith: `FAC-${year}-` },
       },
       orderBy: { number: "desc" },
@@ -81,7 +81,7 @@ export async function POST(
     // Create invoice from quote
     const invoice = await prisma.invoice.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
         clientId: quote.clientId,
         quoteId: quote.id,
         number: invoiceNumber,
@@ -121,7 +121,7 @@ export async function POST(
 
     // Create audit logs
     await logAudit({
-      organizationId: session.user.organizationId,
+      organizationId: session.user.organization?.id,
       userId: session.user.id,
       action: "quote.converted",
       resource: "quote",
@@ -134,7 +134,7 @@ export async function POST(
     })
 
     await logAudit({
-      organizationId: session.user.organizationId,
+      organizationId: session.user.organization?.id,
       userId: session.user.id,
       action: "invoice.created",
       resource: "invoice",

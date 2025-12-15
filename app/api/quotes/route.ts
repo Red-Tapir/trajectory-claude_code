@@ -24,13 +24,13 @@ const createQuoteSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     const hasPermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "quote",
       "read"
     )
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     const quotes = await prisma.quote.findMany({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
         ...(status && { status }),
         ...(clientId && { clientId }),
       },
@@ -81,13 +81,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     const hasPermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "quote",
       "create"
     )
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const client = await prisma.client.findFirst({
       where: {
         id: validatedData.clientId,
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
       },
     })
 
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     const year = new Date().getFullYear()
     const lastQuote = await prisma.quote.findFirst({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
         number: { startsWith: `DEV-${year}-` },
       },
       orderBy: { number: "desc" },
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
     // Create quote with items
     const quote = await prisma.quote.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
         clientId: validatedData.clientId,
         number: quoteNumber,
         date: validatedData.date ? new Date(validatedData.date) : new Date(),
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
 
     // Create audit log
     await logAudit({
-      organizationId: session.user.organizationId,
+      organizationId: session.user.organization?.id,
       userId: session.user.id,
       action: "quote.created",
       resource: "quote",

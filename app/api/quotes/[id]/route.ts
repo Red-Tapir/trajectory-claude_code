@@ -27,14 +27,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     const quote = await prisma.quote.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
       },
       include: {
         client: true,
@@ -72,13 +72,13 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     const hasPermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "quote",
       "update"
     )
@@ -90,7 +90,7 @@ export async function PUT(
     const existingQuote = await prisma.quote.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
       },
     })
 
@@ -158,7 +158,7 @@ export async function PUT(
     })
 
     await logAudit({
-      organizationId: session.user.organizationId,
+      organizationId: session.user.organization?.id,
       userId: session.user.id,
       action: "quote.updated",
       resource: "quote",
@@ -190,13 +190,13 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.organizationId) {
+    if (!session?.user?.organization?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
     const hasPermission = await checkPermission(
       session.user.id,
-      session.user.organizationId,
+      session.user.organization?.id,
       "quote",
       "delete"
     )
@@ -208,7 +208,7 @@ export async function DELETE(
     const quote = await prisma.quote.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId,
+        organizationId: session.user.organization?.id,
       },
       include: {
         _count: {
@@ -234,7 +234,7 @@ export async function DELETE(
     })
 
     await logAudit({
-      organizationId: session.user.organizationId,
+      organizationId: session.user.organization?.id,
       userId: session.user.id,
       action: "quote.deleted",
       resource: "quote",
