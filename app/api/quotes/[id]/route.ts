@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { checkPermission } from "@/lib/permissions"
-import { createAuditLog } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 
 const updateQuoteSchema = z.object({
   status: z.enum(["draft", "sent", "accepted", "rejected", "expired", "converted"]).optional(),
@@ -157,7 +157,7 @@ export async function PUT(
       },
     })
 
-    await createAuditLog({
+    await logAudit({
       organizationId: session.user.organizationId,
       userId: session.user.id,
       action: "quote.updated",
@@ -233,7 +233,7 @@ export async function DELETE(
       where: { id: params.id },
     })
 
-    await createAuditLog({
+    await logAudit({
       organizationId: session.user.organizationId,
       userId: session.user.id,
       action: "quote.deleted",

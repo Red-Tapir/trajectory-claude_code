@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkPermission } from "@/lib/permissions"
-import { createAuditLog } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 
 // POST /api/quotes/[id]/convert - Convert quote to invoice
 export async function POST(
@@ -120,7 +120,7 @@ export async function POST(
     })
 
     // Create audit logs
-    await createAuditLog({
+    await logAudit({
       organizationId: session.user.organizationId,
       userId: session.user.id,
       action: "quote.converted",
@@ -133,7 +133,7 @@ export async function POST(
       },
     })
 
-    await createAuditLog({
+    await logAudit({
       organizationId: session.user.organizationId,
       userId: session.user.id,
       action: "invoice.created",

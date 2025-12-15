@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { checkPermission } from "@/lib/permissions"
-import { createAuditLog } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 
 const createQuoteSchema = z.object({
   clientId: z.string().min(1, "Client requis"),
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Create audit log
-    await createAuditLog({
+    await logAudit({
       organizationId: session.user.organizationId,
       userId: session.user.id,
       action: "quote.created",
