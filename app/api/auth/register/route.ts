@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const organization = await createOrganization({
       name: validatedData.company,
       userId: user.id,
-      plan: "trial",
+      plan: "core", // Plan gratuit par défaut
       metadata: {
         ipAddress: req.headers.get('x-forwarded-for') || undefined,
         userAgent: req.headers.get('user-agent') || undefined,

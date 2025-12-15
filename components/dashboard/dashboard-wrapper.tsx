@@ -9,12 +9,14 @@ interface DashboardWrapperProps {
 }
 
 export function DashboardWrapper({ children }: DashboardWrapperProps) {
-  const { data: session, status } = useSession()
+  const session = useSession()
+  const status = session?.status
+  const sessionData = session?.data
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [checkingOnboarding, setCheckingOnboarding] = useState(true)
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
+    if (status === "authenticated" && sessionData?.user) {
       // Check if onboarding was completed
       const onboardingComplete = localStorage.getItem("trajectory_onboarding_complete")
       
@@ -24,10 +26,10 @@ export function DashboardWrapper({ children }: DashboardWrapperProps) {
       } else {
         setCheckingOnboarding(false)
       }
-    } else if (status !== "loading") {
+    } else if (status && status !== "loading") {
       setCheckingOnboarding(false)
     }
-  }, [status, session])
+  }, [status, sessionData])
 
   const checkUserData = async () => {
     try {

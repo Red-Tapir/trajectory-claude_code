@@ -26,7 +26,7 @@ interface Organization {
 }
 
 export default function SettingsPage() {
-  const session = useSession()
+  const sessionHook = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -44,7 +44,7 @@ export default function SettingsPage() {
     email: "",
   })
 
-  const { status } = session || { status: 'loading' }
+  const status = sessionHook?.status || 'loading'
 
   useEffect(() => {
     if (status === 'unauthenticated') {

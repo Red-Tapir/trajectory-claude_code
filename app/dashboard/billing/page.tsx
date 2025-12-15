@@ -31,12 +31,13 @@ interface SubscriptionData {
 }
 
 export default function BillingPage() {
-  const session = useSession()
+  const sessionHook = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null)
 
-  const { data: sessionData, status } = session || { data: null, status: 'loading' }
+  const sessionData = sessionHook?.data
+  const status = sessionHook?.status || 'loading'
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -103,6 +104,8 @@ export default function BillingPage() {
   const subscription = subscriptionData.subscription
   const usage = subscriptionData.usage
   const isOnTrial = currentPlan === 'trial'
+  const isOnCore = currentPlan === 'core'
+  const isFreePlan = isOnTrial || isOnCore
   const hasActiveSubscription = subscription && subscription.status === 'active'
 
   // Calculate usage percentages
@@ -132,7 +135,7 @@ export default function BillingPage() {
               <h2 className="text-xl font-semibold mb-1">Plan actuel</h2>
               <p className="text-muted-foreground text-sm">Votre formule d'abonnement</p>
             </div>
-            <Badge variant={isOnTrial ? 'secondary' : 'default'}>
+            <Badge variant={isFreePlan ? 'secondary' : 'default'} className={isOnCore ? 'bg-green-100 text-green-800' : ''}>
               {plan?.name}
             </Badge>
           </div>
@@ -142,7 +145,16 @@ export default function BillingPage() {
               <div className="flex justify-between items-baseline">
                 <span className="text-muted-foreground">Prix</span>
                 <span className="text-2xl font-bold">
-                  {isOnTrial ? 'Gratuit' : `${formatPrice(plan.price)}/mois`}
+                  {isFreePlan ? 'Gratuit' : `${formatPrice(plan.price)}/mois`}
+                </span>
+              </div>
+            )}
+
+            {isOnCore && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>
+                  Plan gratuit pour toujours - Facturation illimitée
                 </span>
               </div>
             )}
@@ -192,9 +204,9 @@ export default function BillingPage() {
           </div>
 
           <div className="mt-6 space-y-2">
-            {isOnTrial && (
+            {isFreePlan && (
               <Button onClick={handleUpgrade} className="w-full">
-                Choisir un plan
+                {isOnCore ? 'Découvrir les plans Pro' : 'Choisir un plan'}
               </Button>
             )}
             {hasActiveSubscription && (
@@ -283,7 +295,7 @@ export default function BillingPage() {
             </div>
           )}
 
-          {isOnTrial && (
+          {isFreePlan && (
             <div className="mt-6">
               <Button onClick={handleUpgrade} variant="outline" className="w-full">
                 Passer à un plan supérieur

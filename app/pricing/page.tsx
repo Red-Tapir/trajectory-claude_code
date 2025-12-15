@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { Check } from 'lucide-react'
+import { Check, Sparkles } from 'lucide-react'
 import { PLANS, formatPrice } from '@/lib/stripe'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +22,7 @@ export default function PricingPage() {
       return
     }
 
-    if (planId === 'trial') {
+    if (planId === 'core' || planId === 'trial') {
       router.push('/inscription')
       return
     }
@@ -63,38 +63,44 @@ export default function PricingPage() {
             Choisissez votre plan
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Commencez gratuitement pendant 14 jours. Sans carte bancaire. Annulez à tout moment.
+            Commencez gratuitement avec Core. Évoluez vers nos plans payants pour débloquer plus de fonctionnalités.
           </p>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-          {/* Trial Plan */}
-          <div className="bg-card rounded-2xl shadow-lg p-8 border-2 border-border hover:border-primary/50 transition-colors">
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold mb-2">{PLANS.trial.name}</h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto mb-12">
+          
+          {/* Core Plan - FREE */}
+          <div className="bg-card rounded-2xl shadow-lg p-8 border-2 border-green-500 relative">
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+              <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                Gratuit pour toujours
+              </span>
+            </div>
+
+            <div className="mb-6 mt-2">
+              <h3 className="text-2xl font-bold mb-2">{PLANS.core.name}</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                {PLANS.trial.description}
+                {PLANS.core.description}
               </p>
               <div className="flex items-baseline">
-                <span className="text-4xl font-bold">Gratuit</span>
-                <span className="text-muted-foreground ml-2">14 jours</span>
+                <span className="text-4xl font-bold">0 €</span>
+                <span className="text-muted-foreground ml-2">/mois</span>
               </div>
             </div>
 
             <Button
-              onClick={() => handleSubscribe('trial')}
+              onClick={() => handleSubscribe('core')}
               disabled={loading !== null}
-              className="w-full mb-6"
-              variant="outline"
+              className="w-full mb-6 bg-green-500 hover:bg-green-600"
             >
-              {loading === 'trial' ? 'Chargement...' : 'Commencer gratuitement'}
+              {loading === 'core' ? 'Chargement...' : 'Commencer gratuitement'}
             </Button>
 
             <ul className="space-y-3">
-              {PLANS.trial.features.map((feature, index) => (
+              {PLANS.core.features.map((feature, index) => (
                 <li key={index} className="flex items-start">
-                  <Check className="h-5 w-5 text-primary mr-2 flex-shrink-0 mt-0.5" />
+                  <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
                   <span className="text-sm">{feature}</span>
                 </li>
               ))}
@@ -136,14 +142,15 @@ export default function PricingPage() {
           </div>
 
           {/* Pro Plan - Popular */}
-          <div className="bg-primary text-primary-foreground rounded-2xl shadow-2xl p-8 border-2 border-primary relative transform scale-105">
+          <div className="bg-primary text-primary-foreground rounded-2xl shadow-2xl p-8 border-2 border-primary relative transform lg:scale-105">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-secondary text-secondary-foreground px-4 py-1 rounded-full text-sm font-semibold">
+              <span className="bg-secondary text-secondary-foreground px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
+                <Sparkles className="h-4 w-4" />
                 Le plus populaire
               </span>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-6 mt-2">
               <h3 className="text-2xl font-bold mb-2">{PLANS.pro.name}</h3>
               <p className="text-primary-foreground/80 text-sm mb-4">
                 {PLANS.pro.description}
@@ -161,7 +168,7 @@ export default function PricingPage() {
               disabled={loading !== null}
               className="w-full mb-6 bg-background text-foreground hover:bg-background/90"
             >
-              {loading === 'pro' ? 'Chargement...' : 'Choisir Pro'}
+              {loading === 'pro' ? 'Chargement...' : 'Essai gratuit 14 jours'}
             </Button>
 
             <ul className="space-y-3">
@@ -194,7 +201,7 @@ export default function PricingPage() {
               disabled={loading !== null}
               className="w-full mb-6"
             >
-              {loading === 'enterprise' ? 'Chargement...' : 'Choisir Enterprise'}
+              {loading === 'enterprise' ? 'Chargement...' : 'Contacter les ventes'}
             </Button>
 
             <ul className="space-y-3">
@@ -208,8 +215,18 @@ export default function PricingPage() {
           </div>
         </div>
 
+        {/* Comparison note */}
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-6 py-3 rounded-full">
+            <Check className="h-5 w-5" />
+            <span className="font-medium">
+              Trajectory Core est 100% gratuit, sans limite de temps, sans carte bancaire
+            </span>
+          </div>
+        </div>
+
         {/* FAQ Section */}
-        <div className="mt-20 max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-10">
             Questions fréquentes
           </h2>
@@ -217,27 +234,38 @@ export default function PricingPage() {
           <div className="space-y-6">
             <div className="bg-card rounded-lg p-6 border">
               <h3 className="font-semibold mb-2">
-                L'essai gratuit nécessite-t-il une carte bancaire ?
+                Le plan Core est-il vraiment gratuit ?
               </h3>
               <p className="text-muted-foreground text-sm">
-                Non ! Vous pouvez essayer Trajectory gratuitement pendant 14 jours sans avoir à entrer
-                de carte bancaire. Vous ne paierez qu'après avoir choisi un plan payant.
+                Oui ! Trajectory Core est gratuit pour toujours. Vous pouvez créer des clients et des factures 
+                sans aucune limite. Pas de carte bancaire requise, pas de frais cachés.
               </p>
             </div>
 
             <div className="bg-card rounded-lg p-6 border">
-              <h3 className="font-semibold mb-2">Puis-je changer de plan à tout moment ?</h3>
+              <h3 className="font-semibold mb-2">
+                Quelle est la différence entre Core et les plans payants ?
+              </h3>
               <p className="text-muted-foreground text-sm">
-                Oui, vous pouvez passer à un plan supérieur ou inférieur à tout moment.
-                Les changements sont calculés au prorata.
+                Core vous donne accès à la facturation complète. Les plans payants ajoutent le CRM avancé, 
+                la planification budgétaire, les prévisions financières, les factures récurrentes, 
+                et le support multi-utilisateurs.
               </p>
             </div>
 
             <div className="bg-card rounded-lg p-6 border">
-              <h3 className="font-semibold mb-2">Comment annuler mon abonnement ?</h3>
+              <h3 className="font-semibold mb-2">Puis-je passer de Core à un plan payant ?</h3>
               <p className="text-muted-foreground text-sm">
-                Vous pouvez annuler votre abonnement à tout moment depuis votre tableau de bord.
-                Vous garderez l'accès jusqu'à la fin de votre période de facturation.
+                Absolument ! Vous pouvez upgrader à tout moment depuis votre tableau de bord. 
+                Toutes vos données sont conservées.
+              </p>
+            </div>
+
+            <div className="bg-card rounded-lg p-6 border">
+              <h3 className="font-semibold mb-2">Y a-t-il un essai gratuit pour les plans payants ?</h3>
+              <p className="text-muted-foreground text-sm">
+                Oui, vous bénéficiez de 14 jours d'essai gratuit sur tous les plans payants. 
+                Sans carte bancaire requise.
               </p>
             </div>
 

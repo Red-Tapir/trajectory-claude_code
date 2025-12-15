@@ -219,3 +219,19 @@ export function clearPermissionCache(roleId?: string) {
     rolePermissionsCache.clear()
   }
 }
+
+/**
+ * Alias for can() - used in API routes
+ * @param userId - User ID
+ * @param organizationId - Organization ID  
+ * @param resource - Resource name (e.g., "client", "invoice", "quote")
+ * @param action - Action name (e.g., "create", "read", "update", "delete")
+ */
+export async function checkPermission(
+  userId: string,
+  organizationId: string,
+  resource: string,
+  action: string
+): Promise<boolean> {
+  return can(userId, organizationId, `${resource}:${action}`)
+}

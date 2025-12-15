@@ -26,9 +26,32 @@ export const stripe = typeof process.env.STRIPE_SECRET_KEY !== 'undefined' && pr
 
 // Plans de tarification Trajectory
 export const PLANS = {
+  core: {
+    name: 'Trajectory Core',
+    description: 'Facturation gratuite pour toujours',
+    price: 0,
+    priceId: '', // Pas de price ID pour le plan gratuit
+    features: [
+      'Clients illimités',
+      'Devis illimités',
+      'Factures illimitées',
+      'Génération de PDF',
+      'Envoi d\'emails',
+      'Conversion devis → facture',
+      'Dashboard basique',
+      'Conformité e-invoicing 2026',
+    ],
+    limits: {
+      clients: -1, // illimité
+      invoices: -1, // illimité
+      quotes: -1, // illimité
+      users: 1,
+      storage: 100, // MB
+    },
+  },
   trial: {
-    name: 'Essai gratuit',
-    description: '14 jours d\'essai gratuit - Toutes les fonctionnalités',
+    name: 'Essai Pro',
+    description: '14 jours d\'essai gratuit - Toutes les fonctionnalités Pro',
     price: 0,
     priceId: '', // Pas de price ID pour l'essai
     features: [
@@ -38,10 +61,10 @@ export const PLANS = {
       'Sans carte bancaire',
     ],
     limits: {
-      clients: 10,
-      invoices: 20,
-      users: 1,
-      storage: 100, // MB
+      clients: -1,
+      invoices: -1,
+      users: 5,
+      storage: 5000, // MB
     },
   },
   starter: {
@@ -52,17 +75,16 @@ export const PLANS = {
     interval: 'month',
     priceId: process.env.STRIPE_PRICE_ID_STARTER || '',
     features: [
-      '50 clients maximum',
-      '100 factures par mois',
-      '1 utilisateur',
-      'Génération de PDF',
-      'Envoi d\'emails automatique',
-      'Dashboard et rapports',
+      'Tout de Core +',
+      'CRM avancé',
+      'Planification budgétaire',
+      'Rapports détaillés',
+      'Devis et avoirs',
       'Support email',
     ],
     limits: {
-      clients: 50,
-      invoices: 100,
+      clients: -1,
+      invoices: -1,
       users: 1,
       storage: 500, // MB
     },
@@ -76,19 +98,17 @@ export const PLANS = {
     priceId: process.env.STRIPE_PRICE_ID_PRO || '',
     popular: true,
     features: [
-      'Clients illimités',
-      'Factures illimitées',
+      'Tout de Starter +',
       '5 utilisateurs',
-      'Toutes les fonctionnalités Starter',
-      'Devis et avoirs',
       'Factures récurrentes',
       'Multi-devises',
       'Intégrations (Zapier)',
+      'Prévisions financières',
       'Support prioritaire',
     ],
     limits: {
-      clients: -1, // illimité
-      invoices: -1, // illimité
+      clients: -1,
+      invoices: -1,
       users: 5,
       storage: 5000, // MB (5GB)
     },
@@ -101,10 +121,9 @@ export const PLANS = {
     interval: 'month',
     priceId: process.env.STRIPE_PRICE_ID_ENTERPRISE || '',
     features: [
-      'Tout illimité',
+      'Tout de Pro +',
       'Utilisateurs illimités',
       'Multi-entreprises',
-      'Toutes les fonctionnalités Pro',
       'SSO (SAML)',
       'API dédiée',
       'Intégration bancaire',

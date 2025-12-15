@@ -13,12 +13,14 @@ import {
   Settings,
   LogOut,
   CreditCard,
+  ClipboardList,
 } from "lucide-react"
 
 const navigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { name: "Planification", href: "/dashboard/planning", icon: TrendingUp },
   { name: "Clients & CRM", href: "/dashboard/crm", icon: Users },
+  { name: "Devis", href: "/dashboard/quotes", icon: ClipboardList },
   { name: "Facturation", href: "/dashboard/invoices", icon: FileText },
   { name: "Rapports", href: "/dashboard/reports", icon: BarChart3 },
 ]
@@ -30,7 +32,8 @@ const bottomNav = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const session = useSession()
+  const sessionData = session?.data
 
   const handleSignOut = () => {
     signOut({ callbackUrl: "/" })
@@ -109,15 +112,15 @@ export function Sidebar() {
             <div className="flex items-center min-w-0">
               <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-medium text-primary">
-                  {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || "U"}
+                  {sessionData?.user?.name?.charAt(0)?.toUpperCase() || sessionData?.user?.email?.charAt(0)?.toUpperCase() || "U"}
                 </span>
               </div>
               <div className="ml-3 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  {session?.user?.name || "Utilisateur"}
+                  {sessionData?.user?.name || "Utilisateur"}
                 </p>
                 <p className="text-xs text-gray-400 truncate">
-                  {session?.user?.email}
+                  {sessionData?.user?.email || ""}
                 </p>
               </div>
             </div>

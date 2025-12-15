@@ -100,6 +100,7 @@ model Organization {
   members           OrganizationMember[]
   clients           Client[]
   invoices          Invoice[]
+  quotes            Quote[]
   budgets           Budget[]
   scenarios         Scenario[]
   subscription      Subscription?
@@ -201,6 +202,7 @@ model Client {
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoices       Invoice[]
+  quotes         Quote[]
   deals          Deal[]
 
   @@index([organizationId])
@@ -231,6 +233,7 @@ model Invoice {
   id              String   @id @default(cuid())
   organizationId  String
   clientId        String
+  quoteId         String?  // Reference to original quote if converted
   number          String
   date            DateTime @default(now())
   dueDate         DateTime
@@ -250,12 +253,14 @@ model Invoice {
 
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quote           Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   items           InvoiceItem[]
 
   @@unique([organizationId, number])
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([clientId])
+  @@index([quoteId])
 }
 
 model InvoiceItem {
@@ -270,6 +275,52 @@ model InvoiceItem {
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+// Quotes (Devis)
+model Quote {
+  id              String   @id @default(cuid())
+  organizationId  String
+  clientId        String
+  number          String
+  date            DateTime @default(now())
+  validUntil      DateTime // Date de validité du devis
+  status          String   @default("draft") // draft, sent, accepted, rejected, expired, converted
+  subtotal        Float
+  taxRate         Float    @default(20.0)
+  taxAmount       Float
+  total           Float
+  currency        String   @default("EUR")
+  notes           String?
+  terms           String?  // Conditions particulières
+  pdfUrl          String?
+  convertedAt     DateTime? // Date de conversion en facture
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items           QuoteItem[]
+  invoices        Invoice[]    // Factures générées depuis ce devis
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([clientId])
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quoteId     String
+  description String
+  quantity    Float
+  unitPrice   Float
+  taxRate     Float   @default(20.0)
+  total       Float
+
+  quote       Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
 }
 
 // Financial Planning - Budgets
