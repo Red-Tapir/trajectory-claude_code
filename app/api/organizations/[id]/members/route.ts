@@ -6,6 +6,7 @@ import { inviteToOrganization } from "@/lib/organization"
 import { can } from "@/lib/permissions"
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
 import { z } from "zod"
+import { invitationLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 const inviteSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -103,6 +104,30 @@ export async function POST(
       return NextResponse.json(
         { error: "Vous n'avez pas la permission d'inviter des membres" },
         { status: 403 }
+      )
+    }
+
+    // Check rate limit (20 invitations per hour per organization)
+    const rateLimitResult = await checkRateLimit(
+      invitationLimiter,
+      `invite:${organizationId}`
+    )
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Limite d'invitations atteinte. Vous pouvez inviter jusqu'à 20 membres par heure.",
+          limit: rateLimitResult.limit,
+          reset: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": rateLimitResult.limit?.toString() || "",
+            "X-RateLimit-Remaining": rateLimitResult.remaining?.toString() || "",
+            "X-RateLimit-Reset": rateLimitResult.reset?.toString() || "",
+          },
+        }
       )
     }
 

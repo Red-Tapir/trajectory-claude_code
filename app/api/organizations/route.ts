@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { createOrganization, getUserOrganizations } from "@/lib/organization"
 import { z } from "zod"
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit"
+import { orgCreationLimiter, checkRateLimit } from "@/lib/rate-limit"
 
 const organizationSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -39,6 +40,30 @@ export async function POST(req: NextRequest) {
 
     if (!session?.user) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+    }
+
+    // Check rate limit (3 organizations per day per user)
+    const rateLimitResult = await checkRateLimit(
+      orgCreationLimiter,
+      `org-creation:${session.user.id}`
+    )
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Limite de création d'organisations atteinte. Vous pouvez créer jusqu'à 3 organisations par jour.",
+          limit: rateLimitResult.limit,
+          reset: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": rateLimitResult.limit?.toString() || "",
+            "X-RateLimit-Remaining": rateLimitResult.remaining?.toString() || "",
+            "X-RateLimit-Reset": rateLimitResult.reset?.toString() || "",
+          },
+        }
+      )
     }
 
     const body = await req.json()
