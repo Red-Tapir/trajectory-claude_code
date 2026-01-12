@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "vitest",
     "test:ui": "vitest --ui",
+    "check-env": "tsx scripts/check-env.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-rbac": "tsx prisma/seed-rbac.ts",

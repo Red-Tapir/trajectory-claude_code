@@ -40,6 +40,26 @@ export const emailLimiter = redis
     })
   : null
 
+// Rate limit for organization creation: 3 organizations per day
+export const orgCreationLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(3, "1 d"),
+      analytics: true,
+      prefix: "@upstash/ratelimit:org-creation",
+    })
+  : null
+
+// Rate limit for member invitations: 20 invitations per hour per organization
+export const invitationLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(20, "1 h"),
+      analytics: true,
+      prefix: "@upstash/ratelimit:invitation",
+    })
+  : null
+
 // Helper function to get client identifier (IP address or session ID)
 export function getClientIdentifier(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for")

@@ -4,7 +4,7 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // Adjust this value in production, or use tracesSampler for greater control
-  tracesSampleRate: 1.0,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
@@ -44,5 +44,41 @@ Sentry.init({
     // Non-error exceptions
     "Non-Error exception captured",
     "Non-Error promise rejection captured",
+    // ResizeObserver
+    "ResizeObserver loop limit exceeded",
   ],
+
+  // Scrub sensitive data before sending to Sentry
+  beforeSend(event, hint) {
+    // Don't send events in development
+    if (process.env.NODE_ENV === 'development') {
+      return null
+    }
+
+    // Remove cookies from request data
+    if (event.request?.cookies) {
+      delete event.request.cookies
+    }
+
+    // Remove authorization headers
+    if (event.request?.headers) {
+      delete event.request.headers['authorization']
+      delete event.request.headers['cookie']
+    }
+
+    // Remove sensitive query parameters
+    if (event.request?.query_string) {
+      const sensitiveParams = ['token', 'password', 'secret', 'api_key', 'apikey', 'apiKey']
+      sensitiveParams.forEach(param => {
+        if (event.request?.query_string?.includes(param)) {
+          event.request.query_string = event.request.query_string.replace(
+            new RegExp(`${param}=[^&]*`, 'gi'),
+            `${param}=[REDACTED]`
+          )
+        }
+      })
+    }
+
+    return event
+  },
 })
