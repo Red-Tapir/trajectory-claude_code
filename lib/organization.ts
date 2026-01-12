@@ -184,41 +184,85 @@ export async function inviteToOrganization(params: {
   const { organizationId, email, roleId, invitedBy, metadata } = params
 
   // Check if user exists
-  let user = await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email }
   })
 
-  // If user doesn't exist, they'll need to sign up first
-  // For now, we'll just create a pending membership
+  // Check if already a member
+  if (user) {
+    const existingMembership = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: user.id
+        }
+      }
+    })
 
-  if (!user) {
-    // TODO: Send invitation email
-    throw new Error('User must sign up first before being invited')
+    if (existingMembership) {
+      throw new Error('User is already a member of this organization')
+    }
   }
 
-  // Check if already a member
-  const existingMembership = await prisma.organizationMember.findUnique({
+  // Check for existing pending invitation
+  const existingInvitation = await prisma.organizationInvitation.findFirst({
     where: {
-      organizationId_userId: {
-        organizationId,
-        userId: user.id
-      }
+      organizationId,
+      email,
+      status: 'pending',
     }
   })
 
-  if (existingMembership) {
-    throw new Error('User is already a member of this organization')
+  if (existingInvitation) {
+    throw new Error('An invitation has already been sent to this email')
   }
 
-  // Create membership
-  const membership = await prisma.organizationMember.create({
+  // Generate secure invitation token
+  const crypto = require('crypto')
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+  // Get organization and role details for email
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true }
+  })
+
+  const role = await prisma.role.findUnique({
+    where: { id: roleId },
+    select: { displayName: true }
+  })
+
+  const inviter = await prisma.user.findUnique({
+    where: { id: invitedBy },
+    select: { name: true, email: true }
+  })
+
+  if (!organization || !role || !inviter) {
+    throw new Error('Invalid organization, role, or inviter')
+  }
+
+  // Create invitation
+  const invitation = await prisma.organizationInvitation.create({
     data: {
       organizationId,
-      userId: user.id,
+      email,
       roleId,
+      token,
       invitedBy,
-      status: 'active',
+      expiresAt,
+      status: 'pending',
     }
+  })
+
+  // Send invitation email
+  const { sendInvitationEmail } = require('@/lib/email')
+  await sendInvitationEmail({
+    to: email,
+    organizationName: organization.name,
+    invitedByName: inviter.name || inviter.email,
+    invitationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invitation/${token}`,
+    roleName: role.displayName,
   })
 
   // Log audit
@@ -226,16 +270,16 @@ export async function inviteToOrganization(params: {
     organizationId,
     userId: invitedBy,
     action: 'member.invited',
-    resource: 'organizationMember',
-    resourceId: membership.id,
+    resource: 'organizationInvitation',
+    resourceId: invitation.id,
     metadata: {
-      invitedUserId: user.id,
       invitedEmail: email,
+      roleId,
       ...metadata
     }
   })
 
-  return membership
+  return invitation
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { CreateOrganizationDialog } from "./create-organization-dialog"
 
 interface Organization {
   id: string
@@ -29,6 +30,7 @@ export function WorkspaceSwitcher() {
   const { data: session, update } = useSession()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   useEffect(() => {
     loadOrganizations()
@@ -82,6 +84,7 @@ export function WorkspaceSwitcher() {
   }
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -124,10 +127,7 @@ export function WorkspaceSwitcher() {
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => {
-            // TODO: Open create organization dialog
-            alert("Fonctionnalité de création d'organisation en cours de développement")
-          }}
+          onSelect={() => setCreateDialogOpen(true)}
           className="cursor-pointer"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -135,5 +135,11 @@ export function WorkspaceSwitcher() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    <CreateOrganizationDialog
+      open={createDialogOpen}
+      onOpenChange={setCreateDialogOpen}
+    />
+  </>
   )
 }
