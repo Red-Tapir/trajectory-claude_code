@@ -28,36 +28,47 @@ export async function GET(req: NextRequest) {
         }
       })
 
-      // Create company
-      const company = await tx.company.create({
+      // Create organization
+      const organization = await tx.organization.create({
         data: {
-          name: "Test Company",
+          name: "Test Organization",
+          slug: `test-org-${Date.now()}`,
           plan: "trial",
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         }
       })
 
-      // Link user to company
-      await tx.companyMember.create({
+      // Get owner role
+      const ownerRole = await tx.role.findUnique({
+        where: { name: "owner" }
+      })
+
+      if (!ownerRole) {
+        throw new Error("Owner role not found")
+      }
+
+      // Link user to organization
+      await tx.organizationMember.create({
         data: {
           userId: user.id,
-          companyId: company.id,
-          role: "owner",
+          organizationId: organization.id,
+          roleId: ownerRole.id,
+          status: "active",
         }
       })
 
       // Clean up test data
-      await tx.companyMember.deleteMany({
+      await tx.organizationMember.deleteMany({
         where: { userId: user.id }
       })
-      await tx.company.delete({
-        where: { id: company.id }
+      await tx.organization.delete({
+        where: { id: organization.id }
       })
       await tx.user.delete({
         where: { id: user.id }
       })
 
-      return { user, company }
+      return { user, organization }
     })
 
     return NextResponse.json({
