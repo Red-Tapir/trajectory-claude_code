@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { createAuditLog } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 
 /**
  * GDPR Account Deletion Endpoint
@@ -95,12 +95,12 @@ export async function DELETE(req: NextRequest) {
     // Create audit log BEFORE deletion
     const currentOrgId = session.user.currentOrganizationId
     if (currentOrgId) {
-      await createAuditLog({
-        userId: userId,
+      await logAudit({
         organizationId: currentOrgId,
+        userId: userId,
         action: "user.account_deleted",
-        entityType: "user",
-        entityId: userId,
+        resource: "user",
+        resourceId: userId,
         metadata: {
           originalEmail: user.email,
           originalName: user.name,

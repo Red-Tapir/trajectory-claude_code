@@ -156,7 +156,10 @@ export async function POST(req: NextRequest) {
     const scoped = createPrismaScoped(organizationId)
 
     const client = await scoped.client.create({
-      data: validatedData
+      data: {
+        ...validatedData,
+        organizationId, // Explicitly add organizationId for TypeScript
+      }
     })
 
     // Log audit
